@@ -5,16 +5,13 @@ import java.util.*;
 // TODO: check all the methods that return collections to make sure they are returning COPIES
 // of that collection
 
+// TODO: Implement caching
+
 /**
  * @author Daniel Gorrie
  * 
  *This is a generic implementation of a graph with a node type and an edge type. 
  * All interaction with the graph at this level is in terms of the generic types specified.
- * 
- * Class invariant: None of the nodes or edges in StringGraph are null.
- * 
- * Abstraction function: StringGraph is a graph made up of nodes and edges. Nodes are connected
- * to each other by edges.
  * 
  */
 public class HEXGraph<V>{
@@ -122,9 +119,16 @@ public class HEXGraph<V>{
 		return nodes.get(first).getExcluded().contains(nodes.get(second));
 	}
 	
-	public Relationship getRelationship(V first, V second) {
-		//TODO: implement
-		return Relationship.NONE;
+	/**
+	 * Returns the relationship between the node with the label desired and the node with the
+	 * label other
+	 * 
+	 * @param desired
+	 * @param other
+	 * @return the relationship between desired and other
+	 */
+	public Relationship getRelationship(V desired, V other) {
+		return nodes.get(desired).getRelationship(nodes.get(other));
 	}
 	
 	/**
@@ -147,21 +151,28 @@ public class HEXGraph<V>{
 	 * @param label
 	 * @return
 	 */
-	public Map<V, V> getHierarchySuperset(V label) {
-		//TODO: implement
-		return null;
+	public List<V> getHierarchySuperset(V label) {
+		List<V> list = new ArrayList<V>();
+		for (V v : nodes.keySet()) {
+			if (nodes.get(v).getHierarchySubset().contains(nodes.get(label))) {
+				list.add(v);
+			}
+		}
+		return list;
 	}
 	
 	/**
 	 * 
 	 * 
 	 * @param label
-	 * @param depthLimit -- if zero we return all subclasses
 	 * @return
 	 */
-	public List<V> getHierarchySubset (V label, int depthLimit) {
-		// TODO: implement
-		return null;
+	public List<V> getHierarchySubset (V label) {
+		List<V> list = new ArrayList<V>();
+		for (GraphNode<V> node : nodes.get(label).getHierarchySubset()) {
+			list.add(node.getLabel());
+		}
+		return list;
 	}
 	
 	
@@ -170,7 +181,7 @@ public class HEXGraph<V>{
 	 * @param label
 	 * @return
 	 */
-	public List<V> getExcluded (V label) {
+	public Set<V> getExcluded (V label) {
 		List<V> exc = new ArrayList<V>();
 		for (GraphNode<V> node : nodes.get(label).getExcluded()) {
 			exc.add(node.getLabel());
@@ -326,12 +337,19 @@ public class HEXGraph<V>{
 		}
 		
 		/**
-		 * Returns the one level relationship between this and the given node
+		 * Returns the relationship between this and the given node
 		 * @return Relationship.{NONE, HIERARCHY_SUPER, EXCLUSION}
 		 */
-		public Relationship getDirectRelationship(GraphNode<V> n) {
-			// TODO: implement
-			return Relationship.NONE;
+		public Relationship getRelationship(GraphNode<V> n) {
+			if (getHierarchySuperset().contains(n)) {
+				return Relationship.HIERARCHY_SUPER;
+			} else if (getHierarchySubset().contains(n)) {
+				return Relationship.HIERARCHY_SUB;
+			} else if (excluded.contains(n)) {
+				return Relationship.EXCLUSION;
+			} else {
+				return Relationship.OVERLAPPING;
+			}
 		}
 		
 		
@@ -342,8 +360,11 @@ public class HEXGraph<V>{
 		
 		
 		public Set<GraphNode<V>> getHierarchySubset() {
-			// TODO: implement
-			return null;
+			Set<GraphNode<V>> subset = new HashSet<GraphNode<V>>(hierarchy);
+			for (GraphNode<V> node : hierarchy) {
+				subset.addAll(node.getHierarchySubset());
+			}
+			return subset;
 		}
 		
 		/**
@@ -445,10 +466,10 @@ public class HEXGraph<V>{
 	}
 	
 	public enum Relationship {
-		NONE,
 		HIERARCHY,
 		HIERARCHY_SUB,
 		HIERARCHY_SUPER,
-		EXCLUSION;
+		EXCLUSION,
+		OVERLAPPING;
 	}
 }
