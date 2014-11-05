@@ -46,19 +46,18 @@ public class HEXGraph<V>{
 	 * 
 	 * @param tail The label of the node that will be the tail of the new edge.
 	 * @param head The label of the node that will be the head of the new edge.
-	 * @throws IllegalArgumentException if label is null.
 	 * @return True if the edge is added successfully, false otherwise.
 	 */
 	public boolean addHierarchy(V tail, V head) {
-		addNode(tail);
-		addNode(head);
+		if (!(nodes.keySet().contains(tail) && nodes.keySet().contains(head))) return false;
+		
 		return nodes.get(tail).addHierarchyEdge(nodes.get(head));
 	}
 	
 	
 	public boolean addExclusion(V first, V second) {
-		addNode(first);
-		addNode(second);
+		if (!(nodes.keySet().contains(first) && nodes.keySet().contains(second))) return false;
+		
 		return nodes.get(first).addExclusionEdge(nodes.get(second)) && 
 				nodes.get(second).addExclusionEdge(nodes.get(first));
 	}
@@ -153,10 +152,8 @@ public class HEXGraph<V>{
 	 */
 	public List<V> getHierarchySuperset(V label) {
 		List<V> list = new ArrayList<V>();
-		for (V v : nodes.keySet()) {
-			if (nodes.get(v).getHierarchySubset().contains(nodes.get(label))) {
-				list.add(v);
-			}
+		for (GraphNode<V> node : nodes.get(label).getHierarchySuperset()) {
+			list.add(node.getLabel());
 		}
 		return list;
 	}
@@ -182,8 +179,9 @@ public class HEXGraph<V>{
 	 * @return
 	 */
 	public Set<V> getExcluded (V label) {
-		List<V> exc = new ArrayList<V>();
-		for (GraphNode<V> node : nodes.get(label).getExcluded()) {
+		Set<V> exc = new HashSet<V>();
+		GraphNode<V> current = nodes.get(label);
+		for (GraphNode<V> node : current.getExcluded()) {
 			exc.add(node.getLabel());
 		}
 		return exc;
@@ -254,7 +252,7 @@ public class HEXGraph<V>{
 	 * 
 	 * @throws IllegalStateException if the invariant is violated
 	 */
-	private void checkExcludedInvariant() {
+	public void checkInvariant() {
 		for (V label : nodes.keySet()) {
 			nodes.get(label).checkInvariant();
 		}
@@ -352,10 +350,20 @@ public class HEXGraph<V>{
 			}
 		}
 		
-		
+		@SuppressWarnings("unchecked")
 		public Set<GraphNode<V>> getHierarchySuperset() {
-			// TODO: implement
-			return null;
+			Set<GraphNode<V>> set = new HashSet<GraphNode<V>>();
+			try {
+				for (V v : (Set<V>) nodes.keySet()) {
+					if (nodes.get(v).getHierarchySubset().contains(this)) {
+						set.add((GraphNode<V>)nodes.get(v));
+					}
+				}
+			} catch (ClassCastException e) {
+				System.err.println("Class catch exception caught in getHierarchySuperset");
+				System.err.println(e.getMessage());
+			} 
+			return set;
 		}
 		
 		
@@ -435,8 +443,8 @@ public class HEXGraph<V>{
 		public void checkInvariant() {
 			for (GraphNode<V> node : hierarchy) {
 				if (excluded.contains(node)) {
-					System.err.println("Invariant failed");
-					throw new IllegalStateException();
+					throw new IllegalStateException(
+							String.format("Invariant violated in node %s", getLabel()));
 				}
 			}
 		}
