@@ -49,6 +49,7 @@ public class HEXGraph<V>{
 	 * @return True if the edge is added successfully, false otherwise.
 	 */
 	public boolean addHierarchy(V tail, V head) {
+		// Check to make sure that both things are actually members of the graph
 		if (!(nodes.keySet().contains(tail) && nodes.keySet().contains(head))) return false;
 		
 		return nodes.get(tail).addHierarchyEdge(nodes.get(head));
@@ -56,6 +57,7 @@ public class HEXGraph<V>{
 	
 	
 	public boolean addExclusion(V first, V second) {
+		// Check to make sure that both things are actually members of the graph
 		if (!(nodes.keySet().contains(first) && nodes.keySet().contains(second))) return false;
 		
 		return nodes.get(first).addExclusionEdge(nodes.get(second)) && 
@@ -206,7 +208,15 @@ public class HEXGraph<V>{
 	 */
 	public void densify() {
 		for (V name : nodes.keySet()) {
-			nodes.get(name).densify();
+			for (V supermem : getHierarchySuperset(name)) {
+				for (V ex : getExcluded(supermem)) {
+					addExclusion(name, ex);
+				}
+			}
+			
+			for (V submem : getHierarchySubset(name)) {
+				addHierarchy(name, submem);
+			}
 		}
 		checkInvariant();
 	}
@@ -391,26 +401,6 @@ public class HEXGraph<V>{
 		 */
 		public Set<GraphNode<V>> getExcluded() {
 			return new HashSet<GraphNode<V>>(excluded);
-		}
-		
-		public void sparsify() {
-			
-		}
-		
-		
-		public void densify() {
-			// Add any excluded node of an ancestor
-			for (GraphNode<V> node : getHierarchySuperset()) {
-				for (GraphNode<V> ex : node.getExcluded()) {
-					this.addExclusionEdge(ex);
-					ex.addExclusionEdge(this);
-				}
-			}
-			
-			// Add a hierarchy edge to all descendants
-			for (GraphNode<V> node : getHierarchySubset()) {
-				this.addHierarchyEdge(node);
-			}
 		}
 		
 		/** 
