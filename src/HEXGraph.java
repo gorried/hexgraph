@@ -192,12 +192,23 @@ public class HEXGraph<V>{
 	 * SUPER IMPORTANT METHODS BELOW
 	 */
 	// TODO: Implement these methods
+	/**
+	 * Returns a copy of this graph that is sparsified
+	 */
 	public void sparsify() {
 		
 	}
 	
+	/**
+	 * Densifies the graph. Preferably this method should be called on a copy of an original graph
+	 * 
+	 * @modifies everything about the graph
+	 */
 	public void densify() {
-		
+		for (V name : nodes.keySet()) {
+			nodes.get(name).densify();
+		}
+		checkInvariant();
 	}
 
 	
@@ -380,6 +391,26 @@ public class HEXGraph<V>{
 		 */
 		public Set<GraphNode<V>> getExcluded() {
 			return new HashSet<GraphNode<V>>(excluded);
+		}
+		
+		public void sparsify() {
+			
+		}
+		
+		
+		public void densify() {
+			// Add any excluded node of an ancestor
+			for (GraphNode<V> node : getHierarchySuperset()) {
+				for (GraphNode<V> ex : node.getExcluded()) {
+					this.addExclusionEdge(ex);
+					ex.addExclusionEdge(this);
+				}
+			}
+			
+			// Add a hierarchy edge to all descendants
+			for (GraphNode<V> node : getHierarchySubset()) {
+				this.addHierarchyEdge(node);
+			}
 		}
 		
 		/** 
