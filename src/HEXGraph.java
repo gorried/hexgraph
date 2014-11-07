@@ -20,7 +20,7 @@ public class HEXGraph<V>{
 	/**
 	 * Constructs a new HEXGraph instance.
 	 */
-	public HEXGraph(){
+	public HEXGraph() {
 		nodes = new HashMap<V, GraphNode<V>>();
 	}
 	
@@ -198,7 +198,25 @@ public class HEXGraph<V>{
 	 * Returns a copy of this graph that is sparsified
 	 */
 	public void sparsify() {
-		
+		for (V name : nodes.keySet()) {
+			List<V> ancestors = getHierarchySuperset(name);
+			Set<V> excluded = getExcluded(name);
+			for (V ancestor : ancestors) {
+				for (V ancestorAncestor : getHierarchySuperset(ancestor)) {
+					if (ancestors.contains(ancestorAncestor)) {
+						deleteHierarchyEdge(ancestorAncestor, name);
+					}
+				}
+				
+				for (V ancestorExcluded : getExcluded(ancestor)) {
+					if (excluded.contains(ancestorExcluded)) {
+						deleteExclusion(name, ancestorExcluded);
+					}
+				}
+			}
+			
+		}
+		checkInvariant();
 	}
 	
 	/**
@@ -208,14 +226,14 @@ public class HEXGraph<V>{
 	 */
 	public void densify() {
 		for (V name : nodes.keySet()) {
-			for (V supermem : getHierarchySuperset(name)) {
-				for (V ex : getExcluded(supermem)) {
+			for (V ancestor : getHierarchySuperset(name)) {
+				for (V ex : getExcluded(ancestor)) {
 					addExclusion(name, ex);
 				}
 			}
 			
-			for (V submem : getHierarchySubset(name)) {
-				addHierarchy(name, submem);
+			for (V descendant : getHierarchySubset(name)) {
+				addHierarchy(name, descendant);
 			}
 		}
 		checkInvariant();

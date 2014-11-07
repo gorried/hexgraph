@@ -22,7 +22,9 @@ public class HEXGraphTest {
 	@BeforeClass
 	public static void setup() throws IOException, IllegalStateException {
 		HEXGraphFactory factory = new HEXGraphFactory();
-		graph = factory.getHexGraph("/Users/dgorrie/Documents/workspace/hexgraph/src/sample.hxg");
+		String filepath = "/Users/dgorrie/Documents/workspace/hexgraph/src/sample.hxg";
+		factory.buildHEXGraph(filepath);
+		graph = factory.getLiteralGraph(filepath);
 	}
 	
 	@Test
