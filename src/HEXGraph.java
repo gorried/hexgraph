@@ -1,5 +1,12 @@
 
-import java.util.*;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 
 // TODO: check all the methods that return collections to make sure they are returning COPIES
@@ -14,7 +21,11 @@ import java.util.*;
  * All interaction with the graph at this level is in terms of the generic types specified.
  * 
  */
-public class HEXGraph<V>{
+public class HEXGraph<V> implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 5978536665927538070L;
 	private Map<V, GraphNode<V>> nodes;
 	
 	/**
@@ -193,7 +204,6 @@ public class HEXGraph<V>{
 	/*
 	 * SUPER IMPORTANT METHODS BELOW
 	 */
-	// TODO: Implement these methods
 	/**
 	 * Returns a copy of this graph that is sparsified
 	 */
@@ -311,7 +321,11 @@ public class HEXGraph<V>{
 	 *
 	 */
 	@SuppressWarnings("hiding")
-	class GraphNode<V> {
+	class GraphNode<V> implements Serializable{
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = -3158134210978319197L;
 		private final V label;
 		private float score;
 		
