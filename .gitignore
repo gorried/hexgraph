@@ -1,3 +1,9 @@
 # IDEA config files
 .idea/
 *.iml
+
+bin/
+.settings/
+.project
+.classpath
+src/ResultRunner.java
