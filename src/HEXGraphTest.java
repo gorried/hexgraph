@@ -51,5 +51,19 @@ public class HEXGraphTest {
 		}
 	}
 	
+	 @Test
+	 public void testCreation() {
+        HEXGraph<String> graph = new HEXGraph<String>();
+        graph.addNode("Person");
+        graph.addNode("Dog");
+        graph.addNode("Actor");
+        graph.addNode("Politician");
+        graph.addExclusion("Person", "Dog");
+        graph.addHierarchy("Person", "Actor");
+        graph.addHierarchy("Person", "Politician");
+        assertEquals(4, graph.getNodes().size());
+	  }
+	
+	
 	
 }
