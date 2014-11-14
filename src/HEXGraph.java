@@ -12,36 +12,89 @@ import java.util.Set;
 // TODO: check all the methods that return collections to make sure they are returning COPIES
 // of that collection
 
-// TODO: Implement caching
-
 /**
  * @author Daniel Gorrie
  * 
- *This is a generic implementation of a graph with a node type and an edge type. 
- * All interaction with the graph at this level is in terms of the generic types specified.
+ * This is a generic implementation of a Hierarchy and Exclusion Graph. There are two parts to
+ * this implementation, the graph object, and a node object. Edges in this graph are implied
+ * (Nodes store other nodes they connect to).
  * 
+ * There are two types of edges in this graph. The first kind is a hierarchy edge, which
+ * represents that a node is a subset of another class (for example, husky is a subset of dog). 
+ * The second is an exclusion edge, which describes two classes that are exclusive to one another
+ * (a mountain cannot also be an airplane)
+ * 
+ * This graph has a specific purpose of being used to represent relations between certain
+ * classes for natural language entity recognition. We have implemented several functions specific
+ * to this end, namely functions to sparsify, densify, enumerate the state space, and extract 
+ * inferences between nodes in the graph.
+ * 
+ * For the purposes of documentation, nodes and classes are the same thing.
  */
 public class HEXGraph<V> implements Serializable {
-	/**
-	 * 
-	 */
+	
 	private static final long serialVersionUID = 5978536665927538070L;
 	private Map<V, GraphNode<V>> nodes;
 	
 	/**
-	 * Constructs a new HEXGraph instance.
+	 * Default constructor. Constructs an empty HEXGraph
 	 */
 	public HEXGraph() {
 		nodes = new HashMap<V, GraphNode<V>>();
 	}
 	
 	/**
-	 * Adds a new node to the graph with a label label.
+	 * Returns a deep copy of the current graph
+	 * @return a deep copy of the graph
+	 */
+	public HEXGraph<V> getDeepCopy() {
+		HEXGraph<V> copy = new HEXGraph<V>();
+		Map<GraphNode<V>, GraphNode<V>> nodeMap = new HashMap<GraphNode<V>, GraphNode<V>>();
+		// Initialize the new nodes, and keep a mapping from the old nodes to the new nodes
+		for (V label : nodes.keySet()) {
+			nodeMap.put(nodes.get(label), new GraphNode<V>(label));
+		}
+		
+		// for each node, use the mapping between old and new to build up identical relations
+		for (GraphNode<V> oldNode : nodeMap.keySet()) {
+			GraphNode<V> newNode = nodeMap.get(oldNode);
+			// update descendants
+			for (GraphNode<V> descendant : oldNode.hierarchy) {
+				newNode.hierarchy.add(nodeMap.get(descendant));
+			}
+			// update excluded
+			for (GraphNode<V> exclude : oldNode.excluded) {
+				newNode.excluded.add(nodeMap.get(exclude));
+			}
+			
+			// Add the new node into the graph
+			copy.nodes.put(newNode.getLabel(), newNode);
+		}
+		
+		return copy;
+	}
+	
+	/**
+	 * Returns a subgraph containing only the specified nodes. If a node has an edge that is not
+	 * part of the node subset, that edge is deleted
+	 * @param nodeSubset the nodes in the new subgraph
+	 * @return subgraph with only the specified nodes
+	 */
+	public HEXGraph<V> getSubgraph(Set<V> nodeSubset) {
+		HEXGraph<V> subgraph = getDeepCopy();
+		for (V node : subgraph.getNodeList()) {
+			if (!nodeSubset.contains(node)) {
+				subgraph.deleteNode(node);
+			}
+		}
+		return subgraph;
+	}
+	
+	/**
+	 * Adds a new node to the graph.
 	 * 
 	 * @param label The label of the node being added.
 	 * @throws IllegalArgumentException if label is null.
-	 * @modifies this
-	 * @effects Adds a new node to the graph.
 	 * @return True if the node was added successfully, false otherwise.
 	 */
 	public boolean addNode(V label) {
@@ -53,20 +106,26 @@ public class HEXGraph<V> implements Serializable {
 	}
 
 	/**
-	 * Adds a new edge between the nodes represented by labels tail and head with the label label.
+	 * Adds a new hierarchy edge from parent to child.
 	 * 
-	 * @param tail The label of the node that will be the tail of the new edge.
-	 * @param head The label of the node that will be the head of the new edge.
-	 * @return True if the edge is added successfully, false otherwise.
+	 * @param parent The label of the class that is the superset of child.
+	 * @param child The label of the class that is the subset of parent.
+	 * @return true if the edge is added successfully, false otherwise.
 	 */
-	public boolean addHierarchy(V tail, V head) {
+	public boolean addHierarchy(V parent, V child) {
 		// Check to make sure that both things are actually members of the graph
-		if (!(nodes.keySet().contains(tail) && nodes.keySet().contains(head))) return false;
+		if (!(nodes.keySet().contains(parent) && nodes.keySet().contains(child))) return false;
 		
-		return nodes.get(tail).addHierarchyEdge(nodes.get(head));
+		return nodes.get(parent).addHierarchyEdge(nodes.get(child));
 	}
 	
-	
+	/**
+	 * Adds an exclusion edge between two nodes. Order does not matter as the edge is undirected
+	 * 
+	 * @param first The first node.
+	 * @param second The second node.
+	 * @return true if the edge is added successfully, false otherwise
+	 */
 	public boolean addExclusion(V first, V second) {
 		// Check to make sure that both things are actually members of the graph
 		if (!(nodes.keySet().contains(first) && nodes.keySet().contains(second))) return false;
@@ -78,11 +137,11 @@ public class HEXGraph<V> implements Serializable {
 	/**
 	 * Removes the node with the given label, as well as all edges coming from and going to it.
 	 * 
+	 * NOTE: this method should not be called if the proper HEXGraph construction procedure is
+	 * being followed.
+	 * 
 	 * @param label The label of the node being removed
-	 * @modifies this
-	 * @effects removes a node from nodes.
-	 * @return True if the node and corresponding edges was removed successfully,
-	 * 		false otherwise.
+	 * @return True if the node and corresponding edges was removed successfully, false otherwise.
 	 */
 	public void deleteNode(V label) {
 		for (V v : nodes.keySet()) {
@@ -92,40 +151,45 @@ public class HEXGraph<V> implements Serializable {
 	}
 
 	/**
-	 * Removes an edge going from node tail to node head with label label. 
+	 * Removes a hierarchy edge going from node parent to node child.
 	 * 
-	 * @param tail The label of the tail of the edge
-	 * @param head The label of the head of the edge
-	 * @param label The label of the edge being removed
-	 * @modifies this, tail
-	 * @effects removes an edge from the graph, more specifically from tail.
-	 * @return True if the edge was removed successfully, false otherwise.
+	 * @param parent The parent node.
+	 * @param child The child node.
+	 * @return true if the edge was removed successfully, false otherwise.
 	 */
-	public boolean deleteHierarchyEdge(V tail, V head) {
-		return nodes.get(tail).removeEdges(nodes.get(head));
+	public boolean deleteHierarchyEdge(V parent, V child) {
+		return nodes.get(parent).removeEdges(nodes.get(child));
 	}
 	
-	// under current API same as above
+	/**
+	 * Removes an exclusion edge between node first and node second.
+	 * 
+	 * @param first The first node.
+	 * @param second The second node.
+	 * @return true if the edge was removed successfully, false otherwise.
+	 */
 	public boolean deleteExclusion(V first, V second) {
 		return nodes.get(first).removeEdges(nodes.get(second));
 	}
 	
 	/**
-	 * Determines if there is an edge with a connecting node a to node b.
+	 * Determines if node child is a descendant of node parent
 	 * 
-	 * @param tail The label of the tail.
-	 * @param head The label of the head.
+	 * @param parent The parent class we are considering.
+	 * @param child The potential child class.
 	 * @throws IllegalArgumentException if either head or tail is null.
-	 * @return True if there is an edge from node a to node b, false if there is not.
+	 * @return true if child is a descendant of parent, false if it isn't.
 	 */
-	public boolean hasHierarchyEdge(V tail, V head) {
-		return nodes.get(tail).getHierarchySubset().contains(nodes.get(head));
+	public boolean isDescendant(V parent, V child) {
+		return nodes.get(parent).getDescendants().contains(nodes.get(child));
 	}
 	
 	/**
+	 * Determines if two classes are excluded from one another.
+	 * 
 	 * @param first One of the nodes we are testing
 	 * @param second The other node we are testing
-	 * @return Whether first and second have an exclusion relationship
+	 * @return true if first and second have an exclusion relationship, false otherwise.
 	 */
 	public boolean hasExclusion(V first, V second) {
 		return nodes.get(first).getExcluded().contains(nodes.get(second));
@@ -135,8 +199,8 @@ public class HEXGraph<V> implements Serializable {
 	 * Returns the relationship between the node with the label desired and the node with the
 	 * label other
 	 * 
-	 * @param desired
-	 * @param other
+	 * @param desired the pivot node
+	 * @param other the other node
 	 * @return the relationship between desired and other
 	 */
 	public Relationship getRelationship(V desired, V other) {
@@ -152,72 +216,118 @@ public class HEXGraph<V> implements Serializable {
 	 */
 	public boolean hasNode(V label){
 		if(label == null){
-			System.err.println("Null passed in as node label in hasNode");
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException("Null passed in as node label in hasNode");
 		}
 		return nodes.containsKey(label);
 	}
 	
 	/**
-	 * Returns the hierarchical relationships involving that node
-	 * @param label
-	 * @return
+	 * Returns the ancestors of a node with the given label
+	 * 
+	 * @param label the label of the node we are finding ancestors for
+	 * @return null if label is not in the graph. Otherwise returns a set of all the ancestors of
+	 *  that node (in no particular order)
 	 */
-	public List<V> getHierarchySuperset(V label) {
-		List<V> list = new ArrayList<V>();
-		for (GraphNode<V> node : nodes.get(label).getHierarchySuperset()) {
-			list.add(node.getLabel());
+	public Set<V> getAncestors(V label) {
+		if (hasNode(label)) {
+			Set<V> set = new HashSet<V>();
+			for (GraphNode<V> node : nodes.get(label).getAncestors()) {
+				set.add(node.getLabel());
+			}
+			return set;
+		} else {
+			return null;			
 		}
-		return list;
 	}
 	
 	/**
+	 * Returns the descendants of the given node
 	 * 
-	 * 
-	 * @param label
-	 * @return
+	 * @param label the label of the node we are finding descendants for
+	 * @return null if label is not in the graph. Otherwise returns a set of all descendants of
+	 * that node (in no particular order)
 	 */
-	public List<V> getHierarchySubset (V label) {
-		List<V> list = new ArrayList<V>();
-		for (GraphNode<V> node : nodes.get(label).getHierarchySubset()) {
-			list.add(node.getLabel());
-		}
-		return list;
+	public Set<V> getDescendants (V label) {
+		if (hasNode(label)) {
+			Set<V> set = new HashSet<V>();
+			for (V node : getDescendants(label)) {
+				set.add(node);
+			}
+			return set;
+		} else {
+			return null;
+		}	
 	}
 	
 	
 	/**
-	 * Transforming to list to make iteration easier? its O(n) anyhow
-	 * @param label
-	 * @return
+	 * Returns a set of all nodes excluded from the node specified by label
+	 * 
+	 * @param label the node we are finding exclusions for
+	 * @return a set of all classes excluded from the specified class
 	 */
 	public Set<V> getExcluded (V label) {
-		Set<V> exc = new HashSet<V>();
-		GraphNode<V> current = nodes.get(label);
-		for (GraphNode<V> node : current.getExcluded()) {
-			exc.add(node.getLabel());
+		if (hasNode(label)) {
+			Set<V> exc = new HashSet<V>();
+			GraphNode<V> current = nodes.get(label);
+			for (GraphNode<V> node : current.getExcluded()) {
+				exc.add(node.getLabel());
+			}
+			return exc;
+		} else {
+			return null;
 		}
-		return exc;
 	}
 	
-	
-	/*
-	 * SUPER IMPORTANT METHODS BELOW
-	 */
 	/**
-	 * Returns a copy of this graph that is sparsified
+	 * Returns a set of all nodes that are not a part of a hierarchy or exclusion relation with
+	 * the given node. 
+	 * 
+	 * @requires THIS IS ONLY GUARANTEED TO BE ACCURATE FOR A DENSIFIED GRAPH
+	 * 
+	 * @param label the node in question
+	 * @return a set of all nodes that are not part unrelated to the given node
+	 */
+	public Set<V> getOverlapping(V label) {
+		if (hasNode(label)) {			
+			Set<V> overlapping = new HashSet<V>();
+			Set<V> ancestors = getAncestors(label);
+			Set<V> descendants = getDescendants(label);
+			Set<V> excluded = getExcluded(label);
+			
+			for (V node : getNodeList()) {
+				if (!ancestors.contains(node) &&
+						!descendants.contains(node) &&
+						!excluded.contains(node)) {
+					overlapping.add(label);
+				}
+			}
+			
+			return overlapping;
+		} else {
+			return null;
+		}
+		
+	}
+	
+	/**
+	 * Sparsifies the graph. This method eliminates any redundant edges by examining hierarchy
+	 * chains. For example if A is a parent of B and C, and B is a parent of C, we can say that
+	 * A's ancestry of C is encoded in A->B->C. Thus the edge between A and C is deleted.
 	 */
 	public void sparsify() {
 		for (V name : nodes.keySet()) {
-			List<V> ancestors = getHierarchySuperset(name);
+			Set<V> ancestors = getAncestors(name);
 			Set<V> excluded = getExcluded(name);
 			for (V ancestor : ancestors) {
-				for (V ancestorAncestor : getHierarchySuperset(ancestor)) {
+				// Remove unnecessary hierarchy edges
+				for (V ancestorAncestor : getAncestors(ancestor)) {
 					if (ancestors.contains(ancestorAncestor)) {
 						deleteHierarchyEdge(ancestorAncestor, name);
 					}
 				}
 				
+				// Remove unnecessary exclusions
 				for (V ancestorExcluded : getExcluded(ancestor)) {
 					if (excluded.contains(ancestorExcluded)) {
 						deleteExclusion(name, ancestorExcluded);
@@ -230,19 +340,19 @@ public class HEXGraph<V> implements Serializable {
 	}
 	
 	/**
-	 * Densifies the graph. Preferably this method should be called on a copy of an original graph
-	 * 
-	 * @modifies everything about the graph
+	 * This method densifies the graph. The opposite of sparsify, we look to see if there is any
+	 * implied relationships in the graph, and if there are, we add edges to represent those
+	 * relationships explicitly.
 	 */
 	public void densify() {
 		for (V name : nodes.keySet()) {
-			for (V ancestor : getHierarchySuperset(name)) {
+			for (V ancestor : getAncestors(name)) {
 				for (V ex : getExcluded(ancestor)) {
 					addExclusion(name, ex);
 				}
 			}
 			
-			for (V descendant : getHierarchySubset(name)) {
+			for (V descendant : getDescendants(name)) {
 				addHierarchy(name, descendant);
 			}
 		}
@@ -252,7 +362,6 @@ public class HEXGraph<V> implements Serializable {
 	
 	/**
 	 * Returns the number of nodes in the graph.
-	 * 
 	 * @return the number of nodes in the graph.
 	 */
 	public int size() {
@@ -261,10 +370,9 @@ public class HEXGraph<V> implements Serializable {
 	
 	/**
 	 * Returns whether the graph is empty or not.
-	 * 
 	 * @return True if the graph is empty, false if it isn't.	
 	 */
-	public boolean isEmpty(){
+	public boolean isEmpty() {
 		return size() == 0;
 	}
 	
@@ -275,8 +383,8 @@ public class HEXGraph<V> implements Serializable {
 	 * @throws IllegalArgumentException if node is null.
 	 * @return The degree of the node
 	 */
-	public int getDegree(V node){
-		if(node == null){
+	public int getDegree(V node) {
+		if (node == null) {
 			throw new IllegalArgumentException();
 		}
 		return nodes.get(node).getDegree();
@@ -284,15 +392,26 @@ public class HEXGraph<V> implements Serializable {
 	
 	/**
 	 * Returns a list of all the nodes in the graph.
-	 * 
 	 * @return a list of all the nodes in the graph.
 	 */
-	public List<V> getNodes(){
-		ArrayList<V> list = new ArrayList<V>();
-		for(V n : nodes.keySet()){
+	public List<V> getNodeList() {
+		List<V> list = new ArrayList<V>();
+		for (V n : nodes.keySet()){
 			list.add(n);
 		}
 		return list;
+	}
+	
+	/**
+	 * Returns a set of all the nodes in the graph.
+	 * @return a set of all the nodes in the graph.
+	 */
+	public Set<V> getNodeSet() {
+		Set<V> set = new HashSet<V>();
+		for (V n : nodes.keySet()) {
+			set.add(n);
+		}
+		return set;
 	}
 	
 	/**
@@ -314,23 +433,30 @@ public class HEXGraph<V> implements Serializable {
 	 * be modified once the GraphNode is created, as well as a set of edges originating at the given
 	 * GraphNode. There are no duplicate edges allowed.
 	 * 
-	 * Class invariant: label is never null, and that edges contains only valid GraphEdges.
-	 * 
-	 * Abstraction function: Nodes are entities that hold information and that are connected to
-	 * each other by edges.
+	 * More specifically, each GraphNode represents an entity recognition class in our uses of
+	 * the HEXGraph.
 	 *
+	 * GraphNodes store two sets of edges, one representing their direct children in a hierarchy
+	 * relationship, the other representing classes they are excluded from.
 	 */
 	@SuppressWarnings("hiding")
 	class GraphNode<V> implements Serializable{
-		/**
-		 * 
-		 */
+		
 		private static final long serialVersionUID = -3158134210978319197L;
+		
+		/**
+		 * Descriptor of the classs
+		 */
 		private final V label;
+		
+		/**
+		 * Score assigned to a node representing whether an entity we are considering can have
+		 * this class or not
+		 */
 		private float score;
 		
 		/**
-		 * Set of nodes that this node is hierarchically above
+		 * Set of nodes that this node is hierarchically above (by one level)
 		 */
 		private Set<GraphNode<V>> hierarchy;
 		
@@ -392,9 +518,9 @@ public class HEXGraph<V> implements Serializable {
 		 * @return Relationship.{NONE, HIERARCHY_SUPER, EXCLUSION}
 		 */
 		public Relationship getRelationship(GraphNode<V> n) {
-			if (getHierarchySuperset().contains(n)) {
+			if (getAncestors().contains(n)) {
 				return Relationship.HIERARCHY_SUPER;
-			} else if (getHierarchySubset().contains(n)) {
+			} else if (getDescendants().contains(n)) {
 				return Relationship.HIERARCHY_SUB;
 			} else if (excluded.contains(n)) {
 				return Relationship.EXCLUSION;
@@ -403,12 +529,17 @@ public class HEXGraph<V> implements Serializable {
 			}
 		}
 		
+		/**
+		 * Returns a set of all ancestors for this class
+		 * 
+		 * @return a set of all ancestors of this node.
+		 */
 		@SuppressWarnings("unchecked")
-		public Set<GraphNode<V>> getHierarchySuperset() {
+		public Set<GraphNode<V>> getAncestors() {
 			Set<GraphNode<V>> set = new HashSet<GraphNode<V>>();
 			try {
 				for (V v : (Set<V>) nodes.keySet()) {
-					if (nodes.get(v).getHierarchySubset().contains(this)) {
+					if (nodes.get(v).getDescendants().contains(this)) {
 						set.add((GraphNode<V>)nodes.get(v));
 					}
 				}
@@ -419,16 +550,23 @@ public class HEXGraph<V> implements Serializable {
 			return set;
 		}
 		
-		
-		public Set<GraphNode<V>> getHierarchySubset() {
+		/**
+		 * Returns the set of all descendants for this class (the entire subtree rooted at this
+		 * class)
+		 * 
+		 * @return a set of all descendants of this node.
+		 */
+		public Set<GraphNode<V>> getDescendants() {
 			Set<GraphNode<V>> subset = new HashSet<GraphNode<V>>(hierarchy);
 			for (GraphNode<V> node : hierarchy) {
-				subset.addAll(node.getHierarchySubset());
+				subset.addAll(node.getDescendants());
 			}
 			return subset;
 		}
 		
 		/**
+		 * Returns a soft copy of the set of excluded nodes
+		 * 
 		 * @return a copy of the excluded set
 		 */
 		public Set<GraphNode<V>> getExcluded() {
@@ -477,8 +615,7 @@ public class HEXGraph<V> implements Serializable {
 				}
 			}
 		}
-		
-				
+			
 		/**
 		 * Returns the number of edges that have this as their tail.
 		 * 
@@ -518,7 +655,6 @@ public class HEXGraph<V> implements Serializable {
 		
 		/**
 		 * Returns the hash code for this object.
-		 * 
 		 * @return The hash code for this object.
 		 */
 		public int hashCode() {
@@ -527,7 +663,6 @@ public class HEXGraph<V> implements Serializable {
 	}
 	
 	public enum Relationship {
-		HIERARCHY,
 		HIERARCHY_SUB,
 		HIERARCHY_SUPER,
 		EXCLUSION,

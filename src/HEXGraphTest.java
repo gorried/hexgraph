@@ -39,7 +39,7 @@ public class HEXGraphTest {
 	public void testHierarchySubset() {
 		for (int i = 0; i < testNames.length; i++) {			
 			// System.out.println(graph.getHierarchySubset(testNames[i]).toString());
-			assertEquals(graph.getHierarchySubset(testNames[i]).toString(), "[" + subsets[i] + "]");
+			assertEquals(graph.getDescendants(testNames[i]).toString(), "[" + subsets[i] + "]");
 		}
 	}
 	
@@ -47,7 +47,7 @@ public class HEXGraphTest {
 	public void testHierarchySuperset() {
 		for (int i = 0; i < testNames.length; i++) {			
 			// System.out.println(graph.getHierarchySuperset(testNames[i]).toString());
-			assertEquals(graph.getHierarchySuperset(testNames[i]).toString(), "[" + supersets[i] + "]");
+			assertEquals(graph.getAncestors(testNames[i]).toString(), "[" + supersets[i] + "]");
 		}
 	}
 	
@@ -61,7 +61,7 @@ public class HEXGraphTest {
         graph.addExclusion("Person", "Dog");
         graph.addHierarchy("Person", "Actor");
         graph.addHierarchy("Person", "Politician");
-        assertEquals(4, graph.getNodes().size());
+        assertEquals(4, graph.size());
 	  }
 	
 	
