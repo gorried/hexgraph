@@ -39,7 +39,7 @@ public class HEXGraphTest {
     public void testHierarchySubset() {
         for (int i = 0; i < testNames.length; i++) {
             // System.out.println(graph.getHierarchySubset(testNames[i]).toString());
-            assertEquals(graph.getHierarchySubset(testNames[i]).toString(), "[" + subsets[i] + "]");
+            assertEquals(graph.getDescendants(testNames[i]).toString(), "[" + subsets[i] + "]");
         }
     }
 
@@ -47,7 +47,7 @@ public class HEXGraphTest {
     public void testHierarchySuperset() {
         for (int i = 0; i < testNames.length; i++) {
             // System.out.println(graph.getHierarchySuperset(testNames[i]).toString());
-            assertEquals(graph.getHierarchySuperset(testNames[i]).toString(), "[" + supersets[i] + "]");
+            assertEquals(graph.getDescendants(testNames[i]).toString(), "[" + supersets[i] + "]");
         }
     }
 
@@ -66,7 +66,7 @@ public class HEXGraphTest {
     @Test
     public void testCreation() {
         HEXGraph<String> graph = createSimpleGraph();
-        assertEquals(4, graph.getNodes().size());
+        assertEquals(4, graph.size());
         assertEquals(HEXGraph.Relationship.EXCLUSION, graph.getRelationship("Dog", "Person"));
         assertEquals(HEXGraph.Relationship.EXCLUSION, graph.getRelationship("Person", "Dog"));
         assertEquals(HEXGraph.Relationship.HIERARCHY_SUPER, graph.getRelationship("Actor", "Person"));
@@ -125,6 +125,16 @@ public class HEXGraphTest {
         assertEquals(HEXGraph.Relationship.HIERARCHY_SUB, graph.getRelationship("Person", "Politician"));
         assertEquals(HEXGraph.Relationship.OVERLAPPING, graph.getRelationship("Actor", "Politician"));
         assertEquals(HEXGraph.Relationship.OVERLAPPING, graph.getRelationship("Politician", "Actor"));
+    }
+
+   @Test
+    public void testListStateSpace() {
+        System.out.println("testing list state space");
+	HEXGraph<String> graph = createSimpleGraph();
+	HEXGraphMethods method = new HEXGraphMethods(graph);
+        Configuration<String> conf = method.ListStateSpace();
+System.out.println("printing");
+       System.out.println(conf.toString());
     }
 
 }
