@@ -45,7 +45,7 @@ class Configuration<V> implements Serializable {
 			}
 			return true;
 		}
-		
+
 		public boolean setValues(V item, int val) {
 			int curr = config.get(item);
 			if (!(curr == -1 || curr == val)) {
@@ -63,5 +63,5 @@ class Configuration<V> implements Serializable {
 			}
 			return s;
 		}
-		
+
 	}
