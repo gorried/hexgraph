@@ -23,7 +23,7 @@ public class HEXGraphTest {
     @BeforeClass
     public static void setup() throws IOException, IllegalStateException {
         HEXGraphFactory factory = new HEXGraphFactory();
-        String directory = "/Users/dgorrie/Documents/workspace/hexgraph/src/";
+        String directory = "src/";
         String sample = directory + "sample.hxg";
         String unconnected = directory + "no_connections.hxg";
         factory.buildHEXGraph(sample);
@@ -53,6 +53,12 @@ public class HEXGraphTest {
             // System.out.println(graph.getHierarchySuperset(testNames[i]).toString());
             assertEquals(graph.getDescendants(testNames[i]).toString(), "[" + supersets[i] + "]");
         }
+    }
+
+    @Test
+    public void testListStateSpace() {
+        Set<Configuration<String>> configs = mHexGraphMethods.ListStateSpace();
+        assertEquals(1024, configs.size());
     }
 
     private HEXGraph<String> createSimpleGraph() {
@@ -132,19 +138,24 @@ public class HEXGraphTest {
     }
 
     @Test
-    public void testListStateSpace() {
-        Set<Configuration<String>> configs = mHexGraphMethods.ListStateSpace();
-        assertEquals(1024, configs.size());
-    }
-
-   @Test
-    public void testListStateSpace() {
+    public void testListStateSpace2() {
         System.out.println("testing list state space");
-	HEXGraph<String> graph = createSimpleGraph();
-	HEXGraphMethods method = new HEXGraphMethods(graph);
-        Configuration<String> conf = method.ListStateSpace();
-System.out.println("printing");
-       System.out.println(conf.toString());
+        HEXGraph<String> graph = createSimpleGraph();
+        HEXGraphMethods method = new HEXGraphMethods(graph);
+        Set<Configuration<String>> confs = method.ListStateSpace();
+        System.out.println("printing");
+        for (Configuration<String> conf : confs) {
+            System.out.println(conf.toString());
+        }
+        // 6 configurations
+        // Politician, Actor, Dog, Person
+        // 0 0 0 0
+        // 0 0 1 0
+        // 0 0 0 1
+        // 0 1 0 1
+        // 1 0 0 1
+        // 1 1 0 1
+        assertEquals(6, confs.size());
     }
 
 }
