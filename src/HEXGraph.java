@@ -81,13 +81,37 @@ public class HEXGraph<V> implements Serializable {
 	 * @return subgraph with only the specified nodes
 	 */
 	public HEXGraph<V> getSubgraph(Set<V> nodeSubset) {
-		HEXGraph<V> subgraph = getDeepCopy();
-		for (V node : subgraph.getNodeList()) {
-			if (!nodeSubset.contains(node)) {
-				subgraph.deleteNode(node);
+		if (nodeSubset.isEmpty()) {
+			return new HEXGraph<V>();
+		} else {			
+			HEXGraph<V> subgraph = getDeepCopy();
+			for (V node : subgraph.getNodeList()) {
+				if (!nodeSubset.contains(node)) {
+					subgraph.deleteNode(node);
+				}
 			}
+			return subgraph;
 		}
-		return subgraph;
+	}
+	
+	/**
+	 * Returns a subgraph containing EVERYTHING BUT the specified nodes. If a node has an edge
+	 * that is past of the node subset.
+	 * @param nodeSubset the nodes to not include in the new subgraph
+	 * @return subgraph without the specified nodes
+	 */
+	public HEXGraph<V> getSubgraphMinus(Set<V> nodeSubset) {
+		HEXGraph<V> subgraph = getDeepCopy();
+		if (nodeSubset.isEmpty()) {
+			return subgraph;
+		} else {			
+			for (V node : subgraph.getNodeList()) {
+				if (nodeSubset.contains(node)) {
+					subgraph.deleteNode(node);
+				}
+			}
+			return subgraph;
+		}
 	}
 	
 	/**
@@ -250,8 +274,8 @@ public class HEXGraph<V> implements Serializable {
 	public Set<V> getDescendants (V label) {
 		if (hasNode(label)) {
 			Set<V> set = new HashSet<V>();
-			for (V node : getDescendants(label)) {
-				set.add(node);
+			for (GraphNode<V> node : nodes.get(label).getDescendants()) {
+				set.add(node.getLabel());
 			}
 			return set;
 		} else {

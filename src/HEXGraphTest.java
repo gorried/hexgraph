@@ -1,7 +1,8 @@
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+import java.util.Set;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -12,57 +13,42 @@ import org.junit.Test;
  * Testing class for our HEXGraphImplementation
  */
 public class HEXGraphTest {
-	private static HEXGraph<String> graph;
-	private static final String[] testNames = {"PERSON", "MOUNTAIN", "ANIMAL"};
-	private static final String[] exclusions = {"CAT, DOG", "ANIMAL, LAKE", "LAKE, MOUNTAIN"};
-	private static final String[] subsets = {"ARTIST, POLITICIAN", "", "PUPPY, PERSON, KITTEN, ARTIST, CAT, POLITICIAN, DOG"};
-	private static final String[] supersets = {"ANIMAL", "", ""};
+	private static HEXGraphMethods mHexGraphMethods;
 	
 	
 	@BeforeClass
 	public static void setup() throws IOException, IllegalStateException {
 		HEXGraphFactory factory = new HEXGraphFactory();
-		String filepath = "/Users/dgorrie/Documents/workspace/hexgraph/src/sample.hxg";
-		factory.buildHEXGraph(filepath);
-		graph = factory.getLiteralGraph(filepath);
+		String directory = "/Users/dgorrie/Documents/workspace/hexgraph/src/";
+		String sample = directory + "sample.hxg";
+		String unconnected = directory + "no_connections.hxg";
+		factory.buildHEXGraph(sample);
+		factory.buildHEXGraph(unconnected);
+		mHexGraphMethods = new HEXGraphMethods(factory, unconnected);
 	}
 	
 	@Test
-	public void testExclusions() {
-		for (int i = 0; i < testNames.length; i++) {			
-			// System.out.println(graph.getExcluded(testNames[i]).toString());
-			assertEquals(graph.getExcluded(testNames[i]).toString(), "[" + exclusions[i] + "]");
-		}
+	public void testCreation() {
+	    HEXGraph<String> newGraph = new HEXGraph<String>();
+	    newGraph.addNode("Person");
+	    newGraph.addNode("Dog");
+	    newGraph.addNode("Actor");
+	    newGraph.addNode("Politician");
+	    newGraph.addExclusion("Person", "Dog");
+	    newGraph.addHierarchy("Person", "Actor");
+	    newGraph.addHierarchy("Person", "Politician");
+	    assertEquals(4, newGraph.size());
 	}
 	
 	@Test
-	public void testHierarchySubset() {
-		for (int i = 0; i < testNames.length; i++) {			
-			// System.out.println(graph.getHierarchySubset(testNames[i]).toString());
-			assertEquals(graph.getDescendants(testNames[i]).toString(), "[" + subsets[i] + "]");
-		}
+	public void testListStateSpace() {
+		Set<Configuration<String>> configs = mHexGraphMethods.ListStateSpace();
+		assertEquals(1024, configs.size());
 	}
-	
-	@Test
-	public void testHierarchySuperset() {
-		for (int i = 0; i < testNames.length; i++) {			
-			// System.out.println(graph.getHierarchySuperset(testNames[i]).toString());
-			assertEquals(graph.getAncestors(testNames[i]).toString(), "[" + supersets[i] + "]");
-		}
-	}
-	
-	 @Test
-	 public void testCreation() {
-        HEXGraph<String> graph = new HEXGraph<String>();
-        graph.addNode("Person");
-        graph.addNode("Dog");
-        graph.addNode("Actor");
-        graph.addNode("Politician");
-        graph.addExclusion("Person", "Dog");
-        graph.addHierarchy("Person", "Actor");
-        graph.addHierarchy("Person", "Politician");
-        assertEquals(4, graph.size());
-	  }
+	 
+	 
+	 
+	 
 	
 	
 	
