@@ -38,23 +38,38 @@ public class HEXGraphMethods {
 	}
 	
 	/**
-	 * Returns a configuration
-	 * @return
+	 * Returns a set of all possible configurations that the graph could be in
+	 * @return a set of all possible configurations that the graph could be in
 	 */
-	public Configuration<String> ListStateSpace() {
+	public Set<Configuration<String>> ListStateSpace() {
 		// Check to make sure graph is not empty
 		if (mGraph.isEmpty()) {
-			return new Configuration<String>();
+			return new HashSet<Configuration<String>>();
 		}
 		
-		Configuration<String> config = new Configuration<String>(mGraph.getNodeSet());
+		Set<Configuration<String>> configSet = new HashSet<Configuration<String>>();
+		ListStateSpace(new Configuration<String>(mGraph.getNodeSet()), configSet, mGraph);	
 		
-		ListStateSpace(config, mGraph);	
-		return config;
+		return configSet;
 	}
 	
-	private void ListStateSpace(Configuration<String> config, HEXGraph<String> graph) {
-			
+	/**
+	 * Subroutine to assist with the listing of the state space
+	 * 
+	 * @param currentConfig The current configuration we are considering
+	 * @param configSet A reference to the set of configurations being returned
+	 * @param graph the current subgraph we are considering
+	 */
+	private void ListStateSpace(Configuration<String> currentConfig,
+			Set<Configuration<String>> configSet,
+			HEXGraph<String> graph) {
+		
+		// BASE CASE. If there is nothing left to do we are at a leaf and thus we add it
+		if (graph.isEmpty()) {
+			configSet.add(currentConfig);
+			return;
+		}
+				
 		// set a random pivot pivot
 		String pivot = graph.getNodeList().get(new Random().nextInt(graph.size()));
 		
@@ -76,13 +91,21 @@ public class HEXGraphMethods {
 			v1.add(descendant);
 		}
 		
-		// assign values from the direct relations
-		config.setValues(mGraph.getAncestors(pivot), CONFIG_TRUE);
-		config.setValues(mGraph.getExcluded(pivot), CONFIG_FALSE);
+		Configuration<String> s0 = currentConfig.getDeepCopy();
+		Configuration<String> s1 = currentConfig;
+		
+		// assign values from the direct relations TO HALF the graph
+		s0.setValues(pivot, CONFIG_TRUE);
+		s0.setValues(mGraph.getAncestors(pivot), CONFIG_TRUE);
+		s0.setValues(mGraph.getExcluded(pivot), CONFIG_FALSE);
+		
+		// Here is the other set of relations we need to recurse over
+		s1.setValues(pivot, CONFIG_FALSE);
+		s1.setValues(mGraph.getDescendants(pivot), CONFIG_FALSE);
 		
 		// recursively call this method on v0 and v1. the results should automatically merge
-		ListStateSpace(config, graph.getSubgraph(v0));
-		ListStateSpace(config, graph.getSubgraph(v1));
+		ListStateSpace(s0, configSet, graph.getSubgraphMinus(v0));
+		ListStateSpace(s1, configSet, graph.getSubgraphMinus(v1));
 	}
 	
 }

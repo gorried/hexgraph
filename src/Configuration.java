@@ -21,6 +21,19 @@ class Configuration<V> implements Serializable {
 			}
 		}
 		
+		/**
+		 * Returns a deep copy of this configuration if it is of type string.
+		 * 
+		 * @return a deep copy of this configuration
+		 */
+		public Configuration<V> getDeepCopy() {
+			Configuration<V> copy = new Configuration<V>();
+			for (V item : config.keySet()) {
+				copy.config.put(item, config.get(item));
+			}
+			return copy;
+		}
+		
 		public boolean setValues(Set<V> classes, int val) {
 			for (V item : classes) {
 				int curr = config.get(item);
@@ -32,12 +45,23 @@ class Configuration<V> implements Serializable {
 			}
 			return true;
 		}
-		public String toString() {
-			StringBuilder sb = new StringBuilder();
-			for (V key: config.keySet()) {
-				sb.append(key+":"+config.get(key)+",");
+
+		public boolean setValues(V item, int val) {
+			int curr = config.get(item);
+			if (!(curr == -1 || curr == val)) {
+				return false;
+			} else {
+				config.put(item, val);
+				return true;
 			}
-   			return sb.toString();
 		}
-					
+		
+		public String toString() {
+			String s = "Configuration: \n";
+			for (V node : config.keySet()) {
+				s += node.toString() + ": " + config.get(node) + "\n";
+			}
+			return s;
+		}
+
 	}

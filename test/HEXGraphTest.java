@@ -2,6 +2,7 @@
 import static org.junit.Assert.*;
 
 import java.io.IOException;
+import java.util.Set;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -17,14 +18,17 @@ public class HEXGraphTest {
     private static final String[] exclusions = {"CAT, DOG", "ANIMAL, LAKE", "LAKE, MOUNTAIN"};
     private static final String[] subsets = {"ARTIST, POLITICIAN", "", "PUPPY, PERSON, KITTEN, ARTIST, CAT, POLITICIAN, DOG"};
     private static final String[] supersets = {"ANIMAL", "", ""};
-
+    private static HEXGraphMethods mHexGraphMethods;
 
     @BeforeClass
     public static void setup() throws IOException, IllegalStateException {
         HEXGraphFactory factory = new HEXGraphFactory();
-        String filepath = "src/sample.hxg";
-        factory.buildHEXGraph(filepath);
-        graph = factory.getLiteralGraph(filepath);
+        String directory = "/Users/dgorrie/Documents/workspace/hexgraph/src/";
+        String sample = directory + "sample.hxg";
+        String unconnected = directory + "no_connections.hxg";
+        factory.buildHEXGraph(sample);
+        factory.buildHEXGraph(unconnected);
+        mHexGraphMethods = new HEXGraphMethods(factory, unconnected);
     }
 
     @Test
@@ -125,6 +129,12 @@ public class HEXGraphTest {
         assertEquals(HEXGraph.Relationship.HIERARCHY_SUB, graph.getRelationship("Person", "Politician"));
         assertEquals(HEXGraph.Relationship.OVERLAPPING, graph.getRelationship("Actor", "Politician"));
         assertEquals(HEXGraph.Relationship.OVERLAPPING, graph.getRelationship("Politician", "Actor"));
+    }
+
+    @Test
+    public void testListStateSpace() {
+        Set<Configuration<String>> configs = mHexGraphMethods.ListStateSpace();
+        assertEquals(1024, configs.size());
     }
 
    @Test
