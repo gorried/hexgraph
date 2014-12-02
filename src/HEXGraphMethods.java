@@ -24,6 +24,7 @@ public class HEXGraphMethods {
 	
 	public HEXGraphMethods(HEXGraph<String> graph) {
 		mGraph = graph;
+		mGraph.densify();
 	}
 	
 	/**

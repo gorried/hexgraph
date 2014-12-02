@@ -19,7 +19,7 @@ public class HEXGraphTest {
 	@BeforeClass
 	public static void setup() throws IOException, IllegalStateException {
 		HEXGraphFactory factory = new HEXGraphFactory();
-		String directory = "/Users/dgorrie/Documents/workspace/hexgraph/src/";
+		String directory = "src/";
 		String sample = directory + "sample.hxg";
 		String unconnected = directory + "no_connections.hxg";
 		factory.buildHEXGraph(sample);

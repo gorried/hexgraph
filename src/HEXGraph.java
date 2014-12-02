@@ -66,6 +66,10 @@ public class HEXGraph<V> implements Serializable {
 			for (GraphNode<V> exclude : oldNode.excluded) {
 				newNode.excluded.add(nodeMap.get(exclude));
 			}
+			// update triangulated
+			for (GraphNode<V> tri : oldNode.triangulated) {
+				newNode.triangulated.add(nodeMap.get(tri));
+			}
 			
 			// Add the new node into the graph
 			copy.nodes.put(newNode.getLabel(), newNode);
@@ -132,6 +136,9 @@ public class HEXGraph<V> implements Serializable {
 	/**
 	 * Adds a new hierarchy edge from parent to child.
 	 * 
+	 * We also add an undirected edge between the two for triangulation (no semantic meanint to
+	 * this edge)
+	 * 
 	 * @param parent The label of the class that is the superset of child.
 	 * @param child The label of the class that is the subset of parent.
 	 * @return true if the edge is added successfully, false otherwise.
@@ -140,11 +147,14 @@ public class HEXGraph<V> implements Serializable {
 		// Check to make sure that both things are actually members of the graph
 		if (!(nodes.keySet().contains(parent) && nodes.keySet().contains(child))) return false;
 		
-		return nodes.get(parent).addHierarchyEdge(nodes.get(child));
+		return nodes.get(parent).addHierarchyEdge(nodes.get(child)) &&
+				addTriangulationRelationship(parent, child);
 	}
 	
 	/**
 	 * Adds an exclusion edge between two nodes. Order does not matter as the edge is undirected
+	 * 
+	 * We also add an undirected edge for triangulation. (No semantic meaning to this edge)
 	 * 
 	 * @param first The first node.
 	 * @param second The second node.
@@ -155,7 +165,22 @@ public class HEXGraph<V> implements Serializable {
 		if (!(nodes.keySet().contains(first) && nodes.keySet().contains(second))) return false;
 		
 		return nodes.get(first).addExclusionEdge(nodes.get(second)) && 
-				nodes.get(second).addExclusionEdge(nodes.get(first));
+				nodes.get(second).addExclusionEdge(nodes.get(first)) &&
+				addTriangulationRelationship(first, second);
+	}
+	
+	/**
+	 * Adds a triangulation edge between nodes first and second.
+	 * 
+	 * @param first The first node.
+	 * @param second The second node.
+	 * @return true if the edge is added successfully, false otherwise.
+	 */
+	public boolean addTriangulationRelationship(V first, V second) {
+		if (!(nodes.keySet().contains(first) && nodes.keySet().contains(second))) return false;
+		
+		return nodes.get(first).addTriangulationEdge(nodes.get(second)) &&
+				nodes.get(second).addTriangulationEdge(nodes.get(first));
 	}
 
 	/**
@@ -304,6 +329,24 @@ public class HEXGraph<V> implements Serializable {
 	}
 	
 	/**
+	 * Returns a set of all nodes that the specified node has a triangulated relationship with.
+	 * 
+	 * @param label the node we are finding triangulated relationships for
+	 * @return a set of all classes that are undirected neighbors for the specified class
+	 */
+	public Set<V> getTriangulatedNeighbors(V label) {
+		if (hasNode(label)) {
+			Set<V> tri = new HashSet<V>();
+			for (GraphNode<V> node : nodes.get(label).getTriangulated()) {
+				tri.add(node.getLabel());
+			}
+			return tri;
+		} else {
+			return null;
+		}
+	}
+	
+	/**
 	 * Returns a set of all nodes that are not a part of a hierarchy or exclusion relation with
 	 * the given node. 
 	 * 
@@ -381,6 +424,30 @@ public class HEXGraph<V> implements Serializable {
 			}
 		}
 		checkInvariant();
+	}
+	
+	/**
+	 * Triangulates the graph. This means that all cycles of size > 3 will be broken into cliques
+	 * of size 3
+	 */
+	public void triangulate() {
+		HEXGraph<V> copy = this.getDeepCopy();
+		// iterate over the nodes in the copy, add triangulation edges IN THIS GRAPH between all neighbors
+		// that need to be triangulated and then remove the current node from the copy of the graph
+		
+		
+		for (V label : copy.getNodeSet()) {
+			System.out.println("Label: " + label);
+			for (V first : copy.getTriangulatedNeighbors(label)) {
+				for (V second : copy.getTriangulatedNeighbors(label)) {
+					if (!first.equals(second)) {
+						copy.addTriangulationRelationship(first, second);
+						this.addTriangulationRelationship(first, second);
+					}
+				}
+			}
+			copy.deleteNode(label);
+		}
 	}
 
 	
@@ -490,6 +557,11 @@ public class HEXGraph<V> implements Serializable {
 		private Set<GraphNode<V>> excluded;
 		
 		/**
+		 * Set of nodes this node has a triangulation relationship with (no semantic meaning)
+		 */
+		private Set<GraphNode<V>> triangulated;
+		
+		/**
 		 * Constructs a new GraphNode with the label passed in.
 		 * 
 		 * @param l The label of the new GraphNode
@@ -502,6 +574,7 @@ public class HEXGraph<V> implements Serializable {
 			this.label = l;
 			hierarchy = new HashSet<GraphNode<V>>();
 			excluded = new HashSet<GraphNode<V>>();
+			triangulated = new HashSet<GraphNode<V>>();
 		}
 		
 		/**
@@ -525,6 +598,13 @@ public class HEXGraph<V> implements Serializable {
 		 */
 		public boolean exclusionAdjacent(GraphNode<V> n) {
 			return adjacencyHelper(n.getLabel(), excluded);
+		}
+		
+		/**
+		 * Returns whether this is adjacent for the purposes of triangulation
+		 */
+		public boolean triangulationAdjacent(GraphNode<V> n) {
+			return adjacencyHelper(n.getLabel(), triangulated);
 		}
 		
 		/**
@@ -597,6 +677,10 @@ public class HEXGraph<V> implements Serializable {
 			return new HashSet<GraphNode<V>>(excluded);
 		}
 		
+		public Set<GraphNode<V>> getTriangulated() {
+			return new HashSet<GraphNode<V>>(triangulated);
+		}
+		
 		/** 
 		 * Adds an edge between this and node head with label label
 		 * 
@@ -611,6 +695,10 @@ public class HEXGraph<V> implements Serializable {
 			return excluded.add(head);
 		}
 		
+		public boolean addTriangulationEdge(GraphNode<V> head) {
+			return triangulated.add(head);
+		}
+		
 		/**
 		 * Removes all edges going from this to node head.
 		 * 
@@ -622,6 +710,7 @@ public class HEXGraph<V> implements Serializable {
 		public boolean removeEdges(GraphNode<V> head) {
 			edgeRemovalHelper(head, hierarchy);
 			edgeRemovalHelper(head, excluded);
+			edgeRemovalHelper(head, triangulated);
 			return !excluded.contains(head) && !excluded.contains(head);
 		}
 		
