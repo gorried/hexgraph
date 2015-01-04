@@ -1,5 +1,7 @@
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -8,9 +10,8 @@ import java.util.Set;
 
 public class HEXGraphMethods {
 	
-	private HEXGraph<String> mGraph;
-	private final int CONFIG_FALSE = 0;
-	private final int CONFIG_TRUE = 1;
+	private HEXGraph<String> mDenseGraph;
+	private HEXGraph<String> mSparseGraph;
 	
 	/**
 	 * Constructor that initializes the graph. The graph can be changed at a later time with the
@@ -22,11 +23,6 @@ public class HEXGraphMethods {
 	}
 	
 	
-	public HEXGraphMethods(HEXGraph<String> graph) {
-		mGraph = graph;
-		mGraph.densify();
-	}
-	
 	/**
 	 * Select a graph to list the state space for. We are using the maximally dense equivalent
 	 * of that graph so that we maximize the number of relations we can get with minimal inference
@@ -35,21 +31,39 @@ public class HEXGraphMethods {
 	 */
 	public void selectGraph(HEXGraphFactory factory, String key) {
 		if (factory == null || key == null) return;
-		mGraph = factory.getDenseGraph(key);
+		mDenseGraph = factory.getDenseGraph(key);
+		mSparseGraph = factory.getSparseGraph(key);
 	}
 	
 	/**
 	 * Returns a set of all possible configurations that the graph could be in
 	 * @return a set of all possible configurations that the graph could be in
 	 */
-	public Set<Configuration<String>> ListStateSpace() {
+	public Set<Configuration<String>> listStateSpace() {
 		// Check to make sure graph is not empty
-		if (mGraph.isEmpty()) {
+		if (mDenseGraph.isEmpty()) {
 			return new HashSet<Configuration<String>>();
 		}
 		
 		Set<Configuration<String>> configSet = new HashSet<Configuration<String>>();
-		ListStateSpace(new Configuration<String>(mGraph.getNodeSet()), configSet, mGraph);	
+		listStateSpace(new Configuration<String>(mDenseGraph.getNodeSet()), configSet, mDenseGraph);	
+		
+		return configSet;
+	}
+	
+	/**
+	 * Returns a set of all possible configurations for the graph. Used for clique state space
+	 * in junction tree inference
+	 * @return a set of all possible configurations for the graph.
+	 */
+	private Set<Configuration<String>> listStateSpace(HEXGraph<String> graph) {
+		// Check to make sure graph is not empty
+		if (graph.isEmpty()) {
+			return new HashSet<Configuration<String>>();
+		}
+		
+		Set<Configuration<String>> configSet = new HashSet<Configuration<String>>();
+		listStateSpace(new Configuration<String>(graph.getNodeSet()), configSet, graph);	
 		
 		return configSet;
 	}
@@ -61,7 +75,7 @@ public class HEXGraphMethods {
 	 * @param configSet A reference to the set of configurations being returned
 	 * @param graph the current subgraph we are considering
 	 */
-	private void ListStateSpace(Configuration<String> currentConfig,
+	private void listStateSpace(Configuration<String> currentConfig,
 			Set<Configuration<String>> configSet,
 			HEXGraph<String> graph) {
 		
@@ -78,17 +92,17 @@ public class HEXGraphMethods {
 		Set<String> v0 = new HashSet<String>();
 		Set<String> v1 = new HashSet<String>();
 		
-		for (String excluded : mGraph.getExcluded(pivot)) {
+		for (String excluded : mDenseGraph.getExcluded(pivot)) {
 			v0.add(excluded);
 		}
-		for (String overlapping : mGraph.getOverlapping(pivot)) {
+		for (String overlapping : mDenseGraph.getOverlapping(pivot)) {
 			v0.add(overlapping);
 			v1.add(overlapping);
 		}
-		for (String ancestor : mGraph.getAncestors(pivot)) {
+		for (String ancestor : mDenseGraph.getAncestors(pivot)) {
 			v0.add(ancestor);
 		}
-		for (String descendant : mGraph.getDescendants(pivot)) {
+		for (String descendant : mDenseGraph.getDescendants(pivot)) {
 			v1.add(descendant);
 		}
 		
@@ -96,17 +110,59 @@ public class HEXGraphMethods {
 		Configuration<String> s1 = currentConfig;
 		
 		// assign values from the direct relations TO HALF the graph
-		s0.setValues(pivot, CONFIG_TRUE);
-		s0.setValues(mGraph.getAncestors(pivot), CONFIG_TRUE);
-		s0.setValues(mGraph.getExcluded(pivot), CONFIG_FALSE);
+		s0.setValues(pivot, Configuration.CONFIG_TRUE);
+		s0.setValues(mDenseGraph.getAncestors(pivot), Configuration.CONFIG_TRUE);
+		s0.setValues(mDenseGraph.getExcluded(pivot), Configuration.CONFIG_FALSE);
 		
 		// Here is the other set of relations we need to recurse over
-		s1.setValues(pivot, CONFIG_FALSE);
-		s1.setValues(mGraph.getDescendants(pivot), CONFIG_FALSE);
+		s1.setValues(pivot, Configuration.CONFIG_FALSE);
+		s1.setValues(mDenseGraph.getDescendants(pivot), Configuration.CONFIG_FALSE);
 		
 		// recursively call this method on v0 and v1. the results should automatically merge
-		ListStateSpace(s0, configSet, graph.getSubgraphMinus(v0));
-		ListStateSpace(s1, configSet, graph.getSubgraphMinus(v1));
+		listStateSpace(s0, configSet, graph.getSubgraphMinus(v0));
+		listStateSpace(s1, configSet, graph.getSubgraphMinus(v1));
+	}
+	
+	public JunctionTree<String> buildJunctionTree() {
+		HEXGraph<String> graph = mSparseGraph.getDeepCopy();
+		graph.triangulate();
+		List<String> elimOrdering = graph.getEliminationOrdering();
+		
+		JunctionTree<String> junctionTree = new JunctionTree<String>();
+		
+		for (int i = 0; i < elimOrdering.size(); i++) {
+			Set<String> clique = new HashSet<String>();
+			String curr = elimOrdering.get(i);
+			clique.add(curr);
+			Set<String> triNeighbors = graph.getTriangulatedNeighbors(curr);
+			for (int j = i; j < elimOrdering.size(); j++) {
+				if (triNeighbors.contains(elimOrdering.get(j))) {
+					clique.add(elimOrdering.get(j));
+				}
+			}
+			if (clique.size() != 1 || triNeighbors.size() == 1) {
+				junctionTree.addNode(clique);
+			}
+		}
+		
+		junctionTree.buildEdges();
+		
+		return junctionTree;
+	}
+	
+	public Factor<String> exactInference(JunctionTree<String> tree) {
+		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = getJunctionTreeStateSpaces(tree);
+		return tree.exactInference(tree.getFirst(), stateSpaces, mDenseGraph.getScoreMap());
+	}
+	
+	public Map<JunctionTreeNode<String>, Set<Configuration<String>>> getJunctionTreeStateSpaces(JunctionTree<String> tree) {
+		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = 
+				new HashMap<JunctionTreeNode<String>, Set<Configuration<String>>>();
+		for (JunctionTreeNode<String> node : tree.getNodeSet()) {
+			Set<Configuration<String>> config = listStateSpace(mDenseGraph.getSubgraph(node.getMembers()));
+			stateSpaces.put(node, config);
+		}
+		return stateSpaces;
 	}
 	
 }

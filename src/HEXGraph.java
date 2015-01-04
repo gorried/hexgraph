@@ -1,12 +1,16 @@
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
+
+import javax.swing.event.ListSelectionEvent;
 
 
 // TODO: check all the methods that return collections to make sure they are returning COPIES
@@ -70,6 +74,8 @@ public class HEXGraph<V> implements Serializable {
 			for (GraphNode<V> tri : oldNode.triangulated) {
 				newNode.triangulated.add(nodeMap.get(tri));
 			}
+			
+			newNode.score = oldNode.score;
 			
 			// Add the new node into the graph
 			copy.nodes.put(newNode.getLabel(), newNode);
@@ -432,9 +438,8 @@ public class HEXGraph<V> implements Serializable {
 	 */
 	public void triangulate() {
 		HEXGraph<V> copy = this.getDeepCopy();
-		// iterate over the nodes in the copy, add triangulation edges IN THIS GRAPH between all neighbors
+		// iterate over the nodes in the copy, add triangulation edges in both graphs between all neighbors
 		// that need to be triangulated and then remove the current node from the copy of the graph
-		
 		
 		for (V label : copy.getNodeSet()) {
 			System.out.println("Label: " + label);
@@ -448,6 +453,38 @@ public class HEXGraph<V> implements Serializable {
 			}
 			copy.deleteNode(label);
 		}
+	}
+	
+	/**
+	 * @requires that the graph has been triangulated for this to be somewhat useful
+	 * @return an elimination ordering for the graph.
+	 */
+	public List<V> getEliminationOrdering() {
+		Set<V> unmarked = getNodeSet();
+		List<V> ordering = new ArrayList<V>();
+		for (int i = this.size() - 1; i >= 0; i--) {
+			V current = null;
+			int maxMarked = -1;
+			if (i == this.size()) {
+				current = getNodeList().get(new Random().nextInt(this.size()));
+			} else {
+				for (V node : unmarked) {
+					int markedNeighbors = 0;
+					for (V neighbor : getTriangulatedNeighbors(node)) {
+						if (!unmarked.contains(neighbor)) {
+							markedNeighbors++;
+						}
+					}
+					if (markedNeighbors > maxMarked) {
+						current = node;
+					}
+				}
+			}
+			ordering.add(current);
+			unmarked.remove(current);
+		}
+		Collections.reverse(ordering);
+		return ordering;
 	}
 
 	
@@ -506,6 +543,41 @@ public class HEXGraph<V> implements Serializable {
 	}
 	
 	/**
+	 * Returns the classification score for the given node
+	 * @param node
+	 * @return
+	 */
+	public double getScore(V node) {
+		if (nodes.containsKey(node)) {			
+			return nodes.get(node).getScore();
+		}
+		return 0.0;
+	}
+	
+	/**
+	 * @return a map of all node to score combinations
+	 */
+	public Map<V, Double> getScoreMap() {
+		Map<V, Double> scoreMap = new HashMap<V, Double>();
+		for (V node : nodes.keySet()) {
+			scoreMap.put(node, getScore(node));
+		}
+		return scoreMap;
+	}
+	
+	/**
+	 * Sets scores for all the nodes in the graph at once. If a node is provided in scores that is
+	 * not in the graph we simply ignore it.
+	 */
+	public void setScores(Map<V, Double> scores) {
+		for (V node : scores.keySet()) {
+			if (nodes.containsKey(node)) {
+				nodes.get(node).setScore(scores.get(node));
+			}
+		}
+	}
+	
+	/**
 	 * Checks to make sure that exclusions are properly recognized by both partners that share the
 	 * exclusion edge.
 	 * 
@@ -544,7 +616,7 @@ public class HEXGraph<V> implements Serializable {
 		 * Score assigned to a node representing whether an entity we are considering can have
 		 * this class or not
 		 */
-		private float score;
+		private double score;
 		
 		/**
 		 * Set of nodes that this node is hierarchically above (by one level)
@@ -575,6 +647,7 @@ public class HEXGraph<V> implements Serializable {
 			hierarchy = new HashSet<GraphNode<V>>();
 			excluded = new HashSet<GraphNode<V>>();
 			triangulated = new HashSet<GraphNode<V>>();
+			score = 0.0;
 		}
 		
 		/**
@@ -584,6 +657,20 @@ public class HEXGraph<V> implements Serializable {
 		 */
 		public V getLabel() {
 			return label;
+		}
+		
+		/**
+		 * @return The confidence score of this node from the entity recognition processing
+		 */
+		public double getScore() {
+			return score;
+		}
+		
+		/**
+		 * Sets the score value;
+		 */
+		public void setScore(double s) {
+			score = s;
 		}
 		
 		/**

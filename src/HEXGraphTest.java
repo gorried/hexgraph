@@ -42,7 +42,7 @@ public class HEXGraphTest {
 	
 	@Test
 	public void testListStateSpace() {
-		Set<Configuration<String>> configs = mHexGraphMethods.ListStateSpace();
+		Set<Configuration<String>> configs = mHexGraphMethods.listStateSpace();
 		assertEquals(1024, configs.size());
 	}
 	 
