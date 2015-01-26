@@ -140,9 +140,7 @@ public class HEXGraphMethods {
 					clique.add(elimOrdering.get(j));
 				}
 			}
-			if (clique.size() != 1 || triNeighbors.size() == 1) {
-				junctionTree.addNode(clique);
-			}
+			junctionTree.addNode(clique);
 		}
 		
 		junctionTree.buildEdges();

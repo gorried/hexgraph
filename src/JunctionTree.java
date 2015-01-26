@@ -15,19 +15,43 @@ import java.util.Set;
  * cliques.
  * 
  * Parameter V is the label class from the associated HEXGraph.
+ * 
+ * TODO: check for number of connected components and run message passing over each one
  */
 public class JunctionTree<V> {
 	private Set<JunctionTreeNode<V>> nodes;
+	private Set<JunctionTreeEdge<V>> edges;
 	
 	
 	public JunctionTree() {
 		nodes = new HashSet<JunctionTreeNode<V>>();
+		edges = new HashSet<JunctionTreeEdge<V>>();
 	}
 	
+	private boolean nodeConsumes(JunctionTreeNode<V> node, Set<V> members) {
+		for (V member : members) {
+			Set<V> nodeMembers = node.getMembers();
+			if (!nodeMembers.contains(member)) {
+				return false;
+			}
+		}
+		return true;
+	}
 	
 	public void addNode(Set<V> members) {
+		for (JunctionTreeNode<V> node : nodes) {
+			if (nodeConsumes(node, members)) return;
+		}
 		nodes.add(new JunctionTreeNode<V>(members));
 		System.out.println("added node " + members.toString() + " to tree");
+	}
+	
+	private void addEdge(JunctionTreeNode<V> first, JunctionTreeNode<V> second) {
+		JunctionTreeEdge<V> newEdge = new JunctionTreeEdge<V>(first, second);
+		if (newEdge.weight != 0) {
+			first.addEdge(newEdge);
+			second.addEdge(newEdge);
+		}
 	}
 	
 	public Set<JunctionTreeNode<V>> getNodeSet() {
@@ -45,45 +69,71 @@ public class JunctionTree<V> {
 	 * retained
 	 */
 	public void buildEdges() {
-		// Priority queue for later
-		Queue<JunctionTreeNode<V>> unseen = new LinkedList<JunctionTreeNode<V>>();
+		
+		Set<JunctionTreeNode<V>> unseen = new HashSet<JunctionTreeNode<V>>();
+		Set<JunctionTreeNode<V>> seen = new HashSet<JunctionTreeNode<V>>();
+		JunctionTreeNode<V> curr = null;
 		
 		for (JunctionTreeNode<V> first : nodes) {
 			for (JunctionTreeNode<V> second : nodes) {
-				if (!first.equals(second)) {
-					int weight = first.addEdge(second);
-					if (weight > 0) {
-						second.addEdge(first);
-					}
+				if (!first.equals(second)) {					
+					addEdge(first, second);
 				}
 			}
 			unseen.add(first);
+			curr = first;
 		}
 	
 		// at this point we have all the edges built, now we find the spanning tree (Prims)
-		Set<DummyEdge<V>> finalEdges = new HashSet<DummyEdge<V>>();
+		Set<JunctionTreeEdge<V>> finalEdges = new HashSet<JunctionTreeEdge<V>>();
 		
 		while (!unseen.isEmpty()) {
-			JunctionTreeNode<V> curr = unseen.remove();
-			JunctionTreeNode<V> other = curr.getPrimsNeighbor(unseen);
-			if (other != null) {				
-				finalEdges.add(new DummyEdge<>(curr, other, curr.getOverlap(other)));		
+			int maxCount = -1;
+			JunctionTreeEdge<V> bestEdge = null;
+			if (finalEdges.isEmpty()) {
+				for (JunctionTreeEdge<V> edge : curr.getEdges()) {
+					if (edge.weight > maxCount) {
+						bestEdge = edge;
+						maxCount = edge.weight;
+					}
+				}
+				if (bestEdge == null) {
+					throw new IllegalStateException("Error while building edges");
+				} else {
+					finalEdges.add(bestEdge);
+					unseen.remove(bestEdge.first);
+					seen.add(bestEdge.first);
+					unseen.remove(bestEdge.second);
+					seen.add(bestEdge.second);
+				}
+			} else {
+				for (JunctionTreeNode<V> node : seen) {
+					for (JunctionTreeEdge<V> edge : node.getEdges()) {
+						if (edge.weight > maxCount && unseen.contains(edge.getOther(node))) {
+							bestEdge = edge;
+							maxCount = edge.weight;
+						}
+					}
+				}
+				if (bestEdge == null) {
+					throw new IllegalStateException("Error while building edges");
+				} else {
+					finalEdges.add(bestEdge);
+					unseen.remove(bestEdge.first);
+					seen.add(bestEdge.first);
+					unseen.remove(bestEdge.second);
+					seen.add(bestEdge.second);
+				}
 			}
 		} 
 		
-		for (DummyEdge<V> edge : finalEdges) {
+		// debugging
+		for (JunctionTreeEdge<V> edge : finalEdges) {
 			System.out.println(edge.toString());
 		}
 		
 		// get rid of all the edges that are not supposed to be there
-		for (JunctionTreeNode<V> node : nodes) {
-			node.neighbors.clear();
-			for (DummyEdge<V> edge : finalEdges) {
-				if (edge.contains(node)) {
-					node.addEdge(edge.getOther(node));
-				}
-			}
-		}
+		
 		
 		// we now have our maximal spanning junction tree built!
 	}
@@ -96,36 +146,10 @@ public class JunctionTree<V> {
 			// dont know what to do here
 		}
 		Set<Factor<V>> factors = new HashSet<Factor<V>>();
-		for (JunctionTreeNode<V> child : root.getNeighbors()) {
-			factors.add(child.passMessage(root, stateSpaces, scoreMap));
+		for (JunctionTreeEdge<V> edge : edges) {
+			factors.add(edge.collectMessages(root, stateSpaces, scoreMap));
 		}
 		return null;
-	}
-	
-	@SuppressWarnings("hiding")
-	class DummyEdge<V> {
-		JunctionTreeNode<V> first;
-		JunctionTreeNode<V> second;
-		int weight;
-		
-		public DummyEdge(JunctionTreeNode<V> f, JunctionTreeNode<V> s, int w) {
-			first = f;
-			second = s;
-			weight = w;
-		}
-		
-		public boolean contains(JunctionTreeNode<V> node) {
-			return node.equals(first) || node.equals(second);
-		}
-		
-		public JunctionTreeNode<V> getOther(JunctionTreeNode<V> node) {
-			return node.equals(first) ? second : first;
-		}
-		
-		@Override
-		public String toString() {
-			return first.toString() + "\n" + second.toString() + "\n" + weight;
-		}
 	}
 	
 }
@@ -133,10 +157,10 @@ public class JunctionTree<V> {
 
 class JunctionTreeNode<V> {
 	private Set<V> members;
-	Map<JunctionTreeNode<V>, Set<V>> neighbors;
+	private Set<JunctionTreeEdge<V>> edges;
 	
 	public JunctionTreeNode(Set<V> mems) {
-		neighbors = new HashMap<JunctionTreeNode<V>, Set<V>>();
+		edges = new HashSet<JunctionTreeEdge<V>>();
 		// make a deep copy of mems
 		members = new HashSet<V>();
 		for (V v : mems) {
@@ -144,73 +168,88 @@ class JunctionTreeNode<V> {
 		}
 	}
 	
-	/**
-	 * @requires other != this
-	 */
-	public int addEdge(JunctionTreeNode<V> other) {
-		Set<V> overlap = new HashSet<V>();
-		for (V member : members) {
-			if (other.members.contains(member)) {
-				overlap.add(member);
+	public void addEdge(JunctionTreeEdge<V> edge) {
+		edges.add(edge);
+	}
+	
+	public Set<JunctionTreeEdge<V>> getEdges() {
+		return edges;
+	}
+	
+	public void removeEdge(JunctionTreeNode<V> other) {
+		Iterator<JunctionTreeEdge<V>> it = edges.iterator();
+		while (it.hasNext()) {
+			if (it.next().getOther(this).equals(other)) {
+				it.remove();
 			}
 		}
-		if (overlap.size() != 0) {
-			neighbors.put(other, overlap);
-		}
-		return overlap.size();
 	}
 	
 	public Set<V> getMembers() {
 		return members;
 	}
 	
-	public Set<JunctionTreeNode<V>> getNeighbors() {
-		return neighbors.keySet();
+	public Set<V> getOverlappingSet(JunctionTreeNode<V> other) {
+		Set<V> overlapping = new HashSet<V>();
+		for (V member : members) {
+			if (other.members.contains(member)) {
+				overlapping.add(member);
+			}
+		}
+		return overlapping;
 	}
 	
 	public int getOverlap(JunctionTreeNode<V> other) {
-		if (neighbors.containsKey(other)) {
-			return neighbors.get(other).size();
-		}
-		return -1;
-	}
-	
-	// returns null if there is no node to be added
-	public JunctionTreeNode<V> getPrimsNeighbor(Queue<JunctionTreeNode<V>> unseen) {
-		int maxScore = -1;
-		JunctionTreeNode<V> maxNode = null;
-		for (JunctionTreeNode<V> neighbor : neighbors.keySet()) {
-			if (neighbors.get(neighbor).size() > maxScore && !unseen.contains(neighbor)) {
-				maxScore = neighbors.get(neighbor).size();
-				maxNode = neighbor;
+		int count = 0;
+		for (V member : members) {
+			if (other.members.contains(member)) {
+				count++;
 			}
 		}
-		return maxNode;
+		return count;
 	}
 	
-	Factor<V> passMessage(JunctionTreeNode<V> parent,
+	public Set<JunctionTreeNode<V>> getNeighbors() {
+		Set<JunctionTreeNode<V>> neighbors = new HashSet<JunctionTreeNode<V>>();
+		for (JunctionTreeEdge<V> edge : edges) {
+			neighbors.add(edge.getOther(this));
+		}
+		return neighbors;
+	}
+	
+	/**
+	 * We collect messages from the leaves and bring them to the root
+	 * @param parent
+	 * @param stateSpaces
+	 * @param scoreMap
+	 * @return
+	 */
+	Factor<V> collectMessages(JunctionTreeEdge<V> parent,
 			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
 			Map<V, Double> scoreMap) {
 		// base case: this node doesnt have any neighbors that arent parent (leaf)
-		if (neighbors.size() == 1) {
+		if (edges.size() == 1) {
 			// we know that the only neighbor is parent
 			return new Factor<V>(stateSpaces.get(this), scoreMap);
 		} else {
-			Map<JunctionTreeNode<V>, Factor<V>> factors = new HashMap<JunctionTreeNode<V>, Factor<V>>();
-			Map<JunctionTreeNode<V>, Factor<V>> separators = new HashMap<JunctionTreeNode<V>, Factor<V>>();
-			for (JunctionTreeNode<V> neighbor : getNeighbors()) {
-				if (!neighbor.equals(parent)) {
-					Factor<V> neighborPhi = neighbor.passMessage(this, stateSpaces, scoreMap);
-					factors.put(neighbor, neighborPhi);
-					
-					// build the separator node information
+			Map<JunctionTreeEdge<V>, Factor<V>> factors = new HashMap<JunctionTreeEdge<V>, Factor<V>>();
+			for (JunctionTreeEdge<V> outEdge : getEdges()) {
+				if (!outEdge.equals(parent)) {
+					factors.put(outEdge, outEdge.collectMessages(this, stateSpaces, scoreMap));
 				}
 			}
+			// Calculate scores and put them into a new factor
 			
 			
-		}
+			return null;
+		}	
+	}
+	
+	/**
+	 * Once the messages have been collected at the root, we propagate them outwards to the leaves
+	 */
+	void propagateMessages() {
 		
-		return null;
 	}
 	
 	public String toString() {
@@ -231,3 +270,60 @@ class JunctionTreeNode<V> {
 		return members.hashCode();
 	}
 }
+
+class JunctionTreeEdge<V> {
+	JunctionTreeNode<V> first;
+	JunctionTreeNode<V> second;
+	int weight;
+	Factor<V> factor;
+	
+	public JunctionTreeEdge(JunctionTreeNode<V> f, JunctionTreeNode<V> s) {
+		first = f;
+		second = s;
+		weight = f.getOverlap(s);
+		factor = new Factor<V>();
+	}
+	
+	/**
+	 * Collects the messages from the leaves and sends them upwards to the root
+	 * 
+	 * @param caller
+	 * @param message
+	 * @param stateSpaces
+	 * @param scoreMap
+	 * @return
+	 */
+	public Factor<V> collectMessages(JunctionTreeNode<V> caller, 
+			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
+			Map<V, Double> scoreMap) {
+		if (!caller.equals(first) && !caller.equals(second)) {
+			throw new IllegalStateException("Illegal caller to edge in collect messages");
+		}
+		Factor<V> result = getOther(caller).collectMessages(this, stateSpaces, scoreMap);
+		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
+		return result.getSubDistribution(overlapping, scoreMap);
+	}
+	
+	/**
+	 * Once the messages have been collected at the root, we propagate them outwards to the leaves
+	 */
+	public void propagateMessages() {
+		
+	}
+	
+	public boolean contains(JunctionTreeNode<V> node) {
+		return node.equals(first) || node.equals(second);
+	}
+	
+	public JunctionTreeNode<V> getOther(JunctionTreeNode<V> node) {
+		return node.equals(first) ? second : first;
+	}
+	
+	@Override
+	public String toString() {
+		return first.toString() + "\n" + second.toString() + "\n" + weight;
+	}
+
+}
+
+

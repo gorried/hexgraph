@@ -32,6 +32,14 @@ class Configuration<V> implements Serializable {
 		return config.get(key) == CONFIG_TRUE;
 	}
 	
+	public boolean containsMapping(Map<V, Integer> mapping) {
+		for (V variable : mapping.keySet()) {
+			if (mapping.get(variable) != config.get(variable)) return false;
+		}
+		return true;
+	}
+	
+	
 	public int get(V key) {
 		return config.get(key);
 	}
@@ -39,7 +47,6 @@ class Configuration<V> implements Serializable {
 	public Set<V> getKeySet() {
 		return config.keySet();
 	}
-	
 	
 	
 	/**

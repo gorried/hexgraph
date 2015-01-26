@@ -28,6 +28,16 @@ public class Factor<V> {
 		variables = null;
 	}
 	
+	private Factor(Map<Configuration<V>, Double> dist, Set<V> vars) {
+		distribution = dist;
+		variables = vars;
+	}
+	
+	public Factor<V> getDeepCopy() {
+		
+		return null;
+	}
+	
 	public void addConfiguration(Configuration<V> config, double score) {
 		if (variables == null) {
 			variables = config.getKeySet();
@@ -38,37 +48,28 @@ public class Factor<V> {
 		}
 	}
 	
-	public Set<V> getOverlap(Set<V> other) {
-		Set<V> overlap = new HashSet<V>();
-		for (V variable : variables) {
-			if (other.contains(variable)) {
-				overlap.add(variable);
+	/**
+	 * Runs a sum over the certain subdistribtution
+	 * @param vars
+	 * @param scoreMap
+	 * @return
+	 */
+	public Factor<V> getSubDistribution(Set<V> vars, Map<V, Double> scoreMap) {
+		// Assert variables are in this factor
+		for (V var : vars) {
+			if (!variables.contains(var)) {
+				throw new IllegalArgumentException("Illegal variables in factor subDistribution");
 			}
 		}
-		return overlap;
+		// create a smaller factor over the possibilities for variables
+		Factor<V> f = new Factor();
+		// for each possible outcome, add the score
+		
+		return null;
 	}
 	
-	public double getSumOfSet(V variable) {
-		double sum = 0.0;
-		if (variables.contains(variable)) {
-			for (Configuration<V> config : distribution.keySet()) {
-				if (config.isSet(variable)) {
-					sum += distribution.get(variable);
-				}
-			}			
-		}
-		return sum;
-	}
-	
-	public double getSumOfUnset(V variable) {
-		double sum = 0.0;
-		if (variables.contains(variable)) {
-			for (Configuration<V> config : distribution.keySet()) {
-				if (!config.isSet(variable)) {
-					sum += distribution.get(variable);
-				}
-			}			
-		}
-		return sum;
+	public Factor<V> getDistributionProduct(Factor<V> separator) {
+		
+		return null;
 	}
 }
