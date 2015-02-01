@@ -1,11 +1,6 @@
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.Queue;
 import java.util.Set;
 
 /**
@@ -158,6 +153,7 @@ public class JunctionTree<V> {
 class JunctionTreeNode<V> {
 	private Set<V> members;
 	private Set<JunctionTreeEdge<V>> edges;
+	private Factor<V> factor;
 	
 	public JunctionTreeNode(Set<V> mems) {
 		edges = new HashSet<JunctionTreeEdge<V>>();
@@ -166,6 +162,7 @@ class JunctionTreeNode<V> {
 		for (V v : mems) {
 			members.add(v);
 		}
+		factor = new Factor<V>();
 	}
 	
 	public void addEdge(JunctionTreeEdge<V> edge) {
@@ -183,6 +180,10 @@ class JunctionTreeNode<V> {
 				it.remove();
 			}
 		}
+	}
+	
+	public Factor<V> getFactor() {
+		return factor.getDeepCopy();
 	}
 	
 	public Set<V> getMembers() {
@@ -232,24 +233,34 @@ class JunctionTreeNode<V> {
 			// we know that the only neighbor is parent
 			return new Factor<V>(stateSpaces.get(this), scoreMap);
 		} else {
-			Map<JunctionTreeEdge<V>, Factor<V>> factors = new HashMap<JunctionTreeEdge<V>, Factor<V>>();
+			factor = new Factor<V>(stateSpaces.get(this));
+			Set<Factor<V>> separators = new HashSet<Factor<V>>();
 			for (JunctionTreeEdge<V> outEdge : getEdges()) {
 				if (!outEdge.equals(parent)) {
-					factors.put(outEdge, outEdge.collectMessages(this, stateSpaces, scoreMap));
+					separators.add(outEdge.collectMessages(this, stateSpaces, scoreMap));
 				}
 			}
 			// Calculate scores and put them into a new factor
+			for (Factor<V> separator : separators) {
+				factor.combineDistributionProduct(separator);
+			}
 			
-			
-			return null;
+			return factor.getDeepCopy();
 		}	
 	}
 	
 	/**
 	 * Once the messages have been collected at the root, we propagate them outwards to the leaves
 	 */
-	void propagateMessages() {
-		
+	void propagateMessages(JunctionTreeEdge<V> parent) {
+		if (parent != null) {
+			factor.combineDistributionProduct(parent.getPhiStarStar());
+		}
+		for (JunctionTreeEdge<V> edge : getEdges()) {
+			if (!edge.equals(parent)) {
+				edge.propagateMessages(this);
+			}
+		}	
 	}
 	
 	public String toString() {
@@ -275,13 +286,19 @@ class JunctionTreeEdge<V> {
 	JunctionTreeNode<V> first;
 	JunctionTreeNode<V> second;
 	int weight;
-	Factor<V> factor;
+	Factor<V> phiStar;
+	Factor<V> phiStarStar;
 	
 	public JunctionTreeEdge(JunctionTreeNode<V> f, JunctionTreeNode<V> s) {
 		first = f;
 		second = s;
 		weight = f.getOverlap(s);
-		factor = new Factor<V>();
+		phiStar = new Factor<V>();
+		phiStarStar = new Factor<V>();
+	}
+	
+	public Factor<V> getPhiStarStar() {
+		return phiStarStar.getDeepCopy();
 	}
 	
 	/**
@@ -301,14 +318,20 @@ class JunctionTreeEdge<V> {
 		}
 		Factor<V> result = getOther(caller).collectMessages(this, stateSpaces, scoreMap);
 		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
-		return result.getSubDistribution(overlapping, scoreMap);
+		phiStar = result.getSubDistribution(overlapping);
+		return phiStar.getDeepCopy();
 	}
 	
 	/**
 	 * Once the messages have been collected at the root, we propagate them outwards to the leaves
 	 */
-	public void propagateMessages() {
-		
+	public void propagateMessages(JunctionTreeNode<V> caller) {
+		if (!caller.equals(first) && !caller.equals(second)) {
+			throw new IllegalStateException("Illegal caller to edge in collect messages");
+		}
+		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
+		phiStarStar = caller.getFactor().getSubDistribution(overlapping);
+		getOther(caller).propagateMessages(this);
 	}
 	
 	public boolean contains(JunctionTreeNode<V> node) {

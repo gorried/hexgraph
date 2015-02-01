@@ -1,5 +1,6 @@
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -92,10 +93,35 @@ class Configuration<V> implements Serializable {
 		return s;
 	}
 	
+	public boolean hasSameEntries(Configuration<V> other) {
+		if (other.config.size() == this.config.size()) {
+			Set<V> otherKeys = other.getKeySet();
+			for (V item : this.getKeySet()) {
+				if (!otherKeys.contains(item)) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Returns true if this configuration is a complete subset of configuration other
+	 */
+	public boolean isSubsumed(Configuration<V> other) {
+		for (V key : other.getKeySet()) {
+			if (!this.config.containsKey(key) || this.get(key) != other.get(key)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
 	@SuppressWarnings("unchecked")
 	@Override
 	public boolean equals(Object o) {
-		if (o instanceof Configuration && ((Configuration<V>) o).config.equals(this.config)) {
+		if (o instanceof Configuration && ((Configuration<V>) o).config.equals(config)) {
 			return true;
 		}
 		return false;
@@ -104,6 +130,17 @@ class Configuration<V> implements Serializable {
 	@Override
 	public int hashCode() {
 		return config.hashCode();
+	}
+	
+	public void trim(Set<V> vals) {
+		Iterator<Map.Entry<V, Integer>> it = config.entrySet().iterator();
+		
+		while(it.hasNext()) {
+			Map.Entry<V, Integer> curr = it.next();
+			if (!vals.contains(curr.getKey())) {
+				it.remove();
+			}
+		}
 	}
 	
 }
