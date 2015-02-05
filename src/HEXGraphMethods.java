@@ -92,17 +92,17 @@ public class HEXGraphMethods {
 		Set<String> v0 = new HashSet<String>();
 		Set<String> v1 = new HashSet<String>();
 		
-		for (String excluded : mDenseGraph.getExcluded(pivot)) {
+		for (String excluded : graph.getExcluded(pivot)) {
 			v0.add(excluded);
 		}
-		for (String overlapping : mDenseGraph.getOverlapping(pivot)) {
+		for (String overlapping : graph.getOverlapping(pivot)) {
 			v0.add(overlapping);
 			v1.add(overlapping);
 		}
-		for (String ancestor : mDenseGraph.getAncestors(pivot)) {
+		for (String ancestor : graph.getAncestors(pivot)) {
 			v0.add(ancestor);
 		}
-		for (String descendant : mDenseGraph.getDescendants(pivot)) {
+		for (String descendant : graph.getDescendants(pivot)) {
 			v1.add(descendant);
 		}
 		
@@ -111,12 +111,12 @@ public class HEXGraphMethods {
 		
 		// assign values from the direct relations TO HALF the graph
 		s0.setValues(pivot, Configuration.CONFIG_TRUE);
-		s0.setValues(mDenseGraph.getAncestors(pivot), Configuration.CONFIG_TRUE);
-		s0.setValues(mDenseGraph.getExcluded(pivot), Configuration.CONFIG_FALSE);
+		s0.setValues(graph.getAncestors(pivot), Configuration.CONFIG_TRUE);
+		s0.setValues(graph.getExcluded(pivot), Configuration.CONFIG_FALSE);
 		
 		// Here is the other set of relations we need to recurse over
 		s1.setValues(pivot, Configuration.CONFIG_FALSE);
-		s1.setValues(mDenseGraph.getDescendants(pivot), Configuration.CONFIG_FALSE);
+		s1.setValues(graph.getDescendants(pivot), Configuration.CONFIG_FALSE);
 		
 		// recursively call this method on v0 and v1. the results should automatically merge
 		listStateSpace(s0, configSet, graph.getSubgraphMinus(v0));
@@ -148,9 +148,14 @@ public class HEXGraphMethods {
 		return junctionTree;
 	}
 	
-	public Factor<String> exactInference(JunctionTree<String> tree) {
+	public void setScores(Map<String, Double> scores){
+		mDenseGraph.setScores(scores);
+	}
+	
+	public void exactInference(JunctionTree<String> tree) {
 		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = getJunctionTreeStateSpaces(tree);
-		return tree.exactInference(tree.getFirst(), stateSpaces, mDenseGraph.getScoreMap());
+		tree.exactInference(tree.getFirst(), stateSpaces, mDenseGraph.getScoreMap());
+		tree.printFactors();
 	}
 	
 	public Map<JunctionTreeNode<String>, Set<Configuration<String>>> getJunctionTreeStateSpaces(JunctionTree<String> tree) {
@@ -162,5 +167,7 @@ public class HEXGraphMethods {
 		}
 		return stateSpaces;
 	}
+	
+	
 	
 }

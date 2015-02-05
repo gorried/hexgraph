@@ -93,11 +93,15 @@ class Configuration<V> implements Serializable {
 		return s;
 	}
 	
+	/**
+	 * Checks to see if the two configurations have the same entries AND that the entries are 
+	 * set to the same value
+	 */
 	public boolean hasSameEntries(Configuration<V> other) {
 		if (other.config.size() == this.config.size()) {
 			Set<V> otherKeys = other.getKeySet();
 			for (V item : this.getKeySet()) {
-				if (!otherKeys.contains(item)) {
+				if (!otherKeys.contains(item) || other.get(item) != this.get(item)) {
 					return false;
 				}
 			}
@@ -110,8 +114,8 @@ class Configuration<V> implements Serializable {
 	 * Returns true if this configuration is a complete subset of configuration other
 	 */
 	public boolean isSubsumed(Configuration<V> other) {
-		for (V key : other.getKeySet()) {
-			if (!this.config.containsKey(key) || this.get(key) != other.get(key)) {
+		for (V key : this.getKeySet()) {
+			if (!other.config.containsKey(key) || other.get(key) != this.get(key)) {
 				return false;
 			}
 		}
@@ -132,7 +136,7 @@ class Configuration<V> implements Serializable {
 		return config.hashCode();
 	}
 	
-	public void trim(Set<V> vals) {
+	public Configuration<V> trim(Set<V> vals) {
 		Iterator<Map.Entry<V, Integer>> it = config.entrySet().iterator();
 		
 		while(it.hasNext()) {
@@ -141,6 +145,7 @@ class Configuration<V> implements Serializable {
 				it.remove();
 			}
 		}
+		return this;
 	}
 	
 }

@@ -83,6 +83,7 @@ public class JunctionTree<V> {
 		Set<JunctionTreeEdge<V>> finalEdges = new HashSet<JunctionTreeEdge<V>>();
 		
 		while (!unseen.isEmpty()) {
+			System.out.println(finalEdges);
 			int maxCount = -1;
 			JunctionTreeEdge<V> bestEdge = null;
 			if (finalEdges.isEmpty()) {
@@ -120,31 +121,40 @@ public class JunctionTree<V> {
 					seen.add(bestEdge.second);
 				}
 			}
-		} 
-		
-		// debugging
-		for (JunctionTreeEdge<V> edge : finalEdges) {
-			System.out.println(edge.toString());
 		}
 		
-		// get rid of all the edges that are not supposed to be there
+		for (JunctionTreeNode<V> node : getNodeSet()) {
+			Iterator<JunctionTreeEdge<V>> it = node.getEdges().iterator();
+			while (it.hasNext()) {
+				JunctionTreeEdge<V> currEdge = it.next();
+				if (!finalEdges.contains(currEdge)) {
+					it.remove();
+				}
+			}
+		}
 		
-		
-		// we now have our maximal spanning junction tree built!
 	}
 	
-	public Factor<V> exactInference(JunctionTreeNode<V> root, 
+	public void exactInference(JunctionTreeNode<V> root, 
 			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
 			Map<V, Double> scoreMap) {
 		// base case
 		if (root.getNeighbors().size() == 0) {
 			// dont know what to do here
+			System.out.println("Root has cardinality zero....");
 		}
-		Set<Factor<V>> factors = new HashSet<Factor<V>>();
-		for (JunctionTreeEdge<V> edge : edges) {
-			factors.add(edge.collectMessages(root, stateSpaces, scoreMap));
+		root.collectMessages(null, stateSpaces, scoreMap);
+		root.propagateMessages(null);
+	}
+	
+	public void printFactors() {
+		for (JunctionTreeNode<V> node : nodes) {
+			node.getFactor().print("node", node.getMembers());
+			for (JunctionTreeEdge<V> edge : node.getEdges()) {
+				edge.phiStar.print("phistar to ", edge.getOther(node).getMembers());
+				edge.phiStarStar.print("phistarstar", edge.getOther(node).getMembers());
+			}
 		}
-		return null;
 	}
 	
 }
@@ -225,23 +235,31 @@ class JunctionTreeNode<V> {
 	 * @param scoreMap
 	 * @return
 	 */
-	Factor<V> collectMessages(JunctionTreeEdge<V> parent,
+	Factor<V> collectMessages(JunctionTreeNode<V> parent,
 			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
 			Map<V, Double> scoreMap) {
+		System.out.println("THIS NODE " + getMembers());
+		System.out.println("PARENT " + parent);
 		// base case: this node doesnt have any neighbors that arent parent (leaf)
-		if (edges.size() == 1) {
+		if (edges.size() == 1 && parent != null) {
 			// we know that the only neighbor is parent
-			return new Factor<V>(stateSpaces.get(this), scoreMap);
+			factor = new Factor<V>(stateSpaces.get(this), scoreMap);
+			// factor.print("leaf", getMembers());
+			return factor.getDeepCopy();
 		} else {
-			factor = new Factor<V>(stateSpaces.get(this));
+			factor = new Factor<V>(stateSpaces.get(this), scoreMap);
+			// factor.print("root");
+			
 			Set<Factor<V>> separators = new HashSet<Factor<V>>();
 			for (JunctionTreeEdge<V> outEdge : getEdges()) {
-				if (!outEdge.equals(parent)) {
+				if (!outEdge.contains(parent)) {
 					separators.add(outEdge.collectMessages(this, stateSpaces, scoreMap));
 				}
 			}
+			
 			// Calculate scores and put them into a new factor
 			for (Factor<V> separator : separators) {
+				// separator.print("separator");
 				factor.combineDistributionProduct(separator);
 			}
 			
@@ -253,8 +271,12 @@ class JunctionTreeNode<V> {
 	 * Once the messages have been collected at the root, we propagate them outwards to the leaves
 	 */
 	void propagateMessages(JunctionTreeEdge<V> parent) {
+		if (parent == null) {
+			// factor.print("Root");
+		}
 		if (parent != null) {
-			factor.combineDistributionProduct(parent.getPhiStarStar());
+			factor.combineDistributionProduct(parent.getPhiStar());
+			// factor.print("Factor after product", getMembers());
 		}
 		for (JunctionTreeEdge<V> edge : getEdges()) {
 			if (!edge.equals(parent)) {
@@ -297,6 +319,10 @@ class JunctionTreeEdge<V> {
 		phiStarStar = new Factor<V>();
 	}
 	
+	public Factor<V> getPhiStar() {
+		return phiStar.getDeepCopy();
+	}
+	
 	public Factor<V> getPhiStarStar() {
 		return phiStarStar.getDeepCopy();
 	}
@@ -316,7 +342,7 @@ class JunctionTreeEdge<V> {
 		if (!caller.equals(first) && !caller.equals(second)) {
 			throw new IllegalStateException("Illegal caller to edge in collect messages");
 		}
-		Factor<V> result = getOther(caller).collectMessages(this, stateSpaces, scoreMap);
+		Factor<V> result = getOther(caller).collectMessages(caller, stateSpaces, scoreMap);
 		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
 		phiStar = result.getSubDistribution(overlapping);
 		return phiStar.getDeepCopy();
@@ -327,14 +353,16 @@ class JunctionTreeEdge<V> {
 	 */
 	public void propagateMessages(JunctionTreeNode<V> caller) {
 		if (!caller.equals(first) && !caller.equals(second)) {
-			throw new IllegalStateException("Illegal caller to edge in collect messages");
+			throw new IllegalStateException("Illegal caller to edge in propagate messages");
 		}
 		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
 		phiStarStar = caller.getFactor().getSubDistribution(overlapping);
+		// phiStarStar.print("PhiStarStar");
 		getOther(caller).propagateMessages(this);
 	}
 	
 	public boolean contains(JunctionTreeNode<V> node) {
+		if (node == null) return false;
 		return node.equals(first) || node.equals(second);
 	}
 	

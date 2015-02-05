@@ -51,7 +51,7 @@ public class Factor<V> {
 			newVars.add(var);
 		}
 		for (Configuration<V> config : distribution.keySet()) {
-			newDist.put(config, distribution.get(config));
+			newDist.put(config.getDeepCopy(), distribution.get(config));
 		}
 		return new Factor<V>(newDist, newVars);
 	}
@@ -80,22 +80,19 @@ public class Factor<V> {
 			}
 		}
 		// create a smaller factor over the possibilities for variables
-		Factor<V> newFactor = getDeepCopy();
+		Factor<V> newFactor = new Factor<V>();
+		Factor<V> junkFactor = getDeepCopy();
 		newFactor.variables = vars;
 		
-		for (Configuration<V> config : newFactor.distribution.keySet()) {
-			config.trim(vars);
-		}
-		
-		// for each possible outcome, add the score
-		Iterator<Configuration<V>> it = newFactor.distribution.keySet().iterator();
-		while (it.hasNext()) {
+		Iterator<Configuration<V>> it = junkFactor.distribution.keySet().iterator();
+		while(it.hasNext()) {
 			Configuration<V> curr = it.next();
-			for (Configuration<V> other : newFactor.distribution.keySet()) {
-				if (curr.hasSameEntries(other) && !curr.equals(other)) {
-					newFactor.distribution.put(other, newFactor.distribution.get(other) + newFactor.distribution.get(curr));
-					it.remove();
-				}
+			double d = junkFactor.distribution.get(curr);
+			Configuration<V> trimmed = curr.trim(vars);
+			if (newFactor.distribution.containsKey(trimmed)) {
+				newFactor.distribution.put(trimmed, d + newFactor.distribution.get(trimmed));
+			} else {				
+				newFactor.distribution.put(trimmed, d);
 			}
 		}
 		
@@ -107,9 +104,29 @@ public class Factor<V> {
 			for (Configuration<V> other : separator.distribution.keySet()) {
 				// other will be the smaller factor than config
 				if (other.isSubsumed(config)) {
+//					System.out.println("OWOWOWOWOWO");
+//					System.out.println(config);
+//					System.out.println(this.distribution.get(config));
+//					System.out.println(separator.distribution.get(other));
 					distribution.put(config, this.distribution.get(config) * separator.distribution.get(other));
 				}
 			}
 		}
+	}
+	
+	public void print(String name) {
+		System.out.println("PRINTING FACTOR "+ name + ":");
+		for (Configuration<V> config : distribution.keySet()) {
+			System.out.println(config.toString() + ": " + distribution.get(config));
+		}
+		System.out.println("------");
+	}
+	
+	public void print(String name, Set<V> members) {
+		System.out.println("PRINTING FACTOR "+ name + " with members " + members.toString() + ":");
+		for (Configuration<V> config : distribution.keySet()) {
+			System.out.println(config.toString() + ": " + distribution.get(config));
+		}
+		System.out.println("------");
 	}
 }
