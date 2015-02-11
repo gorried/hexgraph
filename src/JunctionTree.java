@@ -1,3 +1,4 @@
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -132,28 +133,68 @@ public class JunctionTree<V> {
 				}
 			}
 		}
+		this.edges.addAll(finalEdges);
 		
 	}
 	
-	public void exactInference(JunctionTreeNode<V> root, 
+	public Map<Configuration<V>, Double> exactInference(Set<Configuration<V>> graphStateSpace,
 			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
 			Map<V, Double> scoreMap) {
+		JunctionTreeNode<V> root = getFirst();
 		// base case
 		if (root.getNeighbors().size() == 0) {
 			// dont know what to do here
 			System.out.println("Root has cardinality zero....");
 		}
 		root.collectMessages(null, stateSpaces, scoreMap);
-		root.propagateMessages(null);
+		root.propagateMessages(null, null);
+		
+		// All the nodes and edges are stored in a field
+		Map<Configuration<V>, Double> configScores = new HashMap<Configuration<V>, Double>();
+		for (Configuration<V> config : graphStateSpace) {
+			double numerator = 1.0;
+			double denominator = 1.0;
+			System.out.println(config.toString());
+			System.out.print("Numerator: ");
+			for (JunctionTreeNode<V> node : nodes) {
+				numerator *= node.getFactor().getScoreIfSubsumed(config);
+				System.out.print(node.getFactor().getScoreIfSubsumed(config));
+				System.out.print(" ");
+			}
+			System.out.println();
+			System.out.print("Denominator: ");
+			for (JunctionTreeEdge<V> edge : edges) {
+				denominator *= edge.getDivided().getScoreIfSubsumed(config);
+				System.out.println(edge.getDivided().getScoreIfSubsumed(config));
+				System.out.print(" ");
+			}
+			System.out.println("-----");
+			// tune for the repeated factors. We know a factor is a "super" factor if it
+			// appears in an edge.
+			for (V element : config.getKeySet()) {
+				if (config.get(element) == 1) {
+					for (JunctionTreeEdge<V> edge : edges) {
+						if (edge.phiStar.getVariables().contains(element)) {
+							denominator *= Math.pow(Math.E, scoreMap.get(element));
+						}
+					}
+				}
+			}
+			configScores.put(config, numerator / denominator);
+		}
+		
+		return configScores;
 	}
 	
 	public void printFactors() {
 		for (JunctionTreeNode<V> node : nodes) {
 			node.getFactor().print("node", node.getMembers());
-			for (JunctionTreeEdge<V> edge : node.getEdges()) {
-				edge.phiStar.print("phistar to ", edge.getOther(node).getMembers());
-				edge.phiStarStar.print("phistarstar", edge.getOther(node).getMembers());
-			}
+			
+		}
+		for (JunctionTreeEdge<V> edge : edges) {
+			System.out.println("edge between " + edge.first.getMembers() + " and " + edge.second.getMembers());
+			edge.phiStar.print("phistar");
+			edge.phiStarStar.print("phistarstar");
 		}
 	}
 	
@@ -248,7 +289,6 @@ class JunctionTreeNode<V> {
 			return factor.getDeepCopy();
 		} else {
 			factor = new Factor<V>(stateSpaces.get(this), scoreMap);
-			// factor.print("root");
 			
 			Set<Factor<V>> separators = new HashSet<Factor<V>>();
 			for (JunctionTreeEdge<V> outEdge : getEdges()) {
@@ -262,7 +302,6 @@ class JunctionTreeNode<V> {
 				// separator.print("separator");
 				factor.combineDistributionProduct(separator);
 			}
-			
 			return factor.getDeepCopy();
 		}	
 	}
@@ -270,12 +309,11 @@ class JunctionTreeNode<V> {
 	/**
 	 * Once the messages have been collected at the root, we propagate them outwards to the leaves
 	 */
-	void propagateMessages(JunctionTreeEdge<V> parent) {
+	void propagateMessages(JunctionTreeEdge<V> parent, Factor<V> properFactor) {
 		if (parent == null) {
 			// factor.print("Root");
-		}
-		if (parent != null) {
-			factor.combineDistributionProduct(parent.getPhiStar());
+		} else {
+			factor.combineDistributionProduct(properFactor);
 			// factor.print("Factor after product", getMembers());
 		}
 		for (JunctionTreeEdge<V> edge : getEdges()) {
@@ -310,6 +348,7 @@ class JunctionTreeEdge<V> {
 	int weight;
 	Factor<V> phiStar;
 	Factor<V> phiStarStar;
+	Factor<V> divided;
 	
 	public JunctionTreeEdge(JunctionTreeNode<V> f, JunctionTreeNode<V> s) {
 		first = f;
@@ -317,6 +356,7 @@ class JunctionTreeEdge<V> {
 		weight = f.getOverlap(s);
 		phiStar = new Factor<V>();
 		phiStarStar = new Factor<V>();
+		divided = new Factor<V>();
 	}
 	
 	public Factor<V> getPhiStar() {
@@ -325,6 +365,10 @@ class JunctionTreeEdge<V> {
 	
 	public Factor<V> getPhiStarStar() {
 		return phiStarStar.getDeepCopy();
+	}
+	
+	public Factor<V> getDivided() {
+		return divided.getDeepCopy();
 	}
 	
 	/**
@@ -357,8 +401,10 @@ class JunctionTreeEdge<V> {
 		}
 		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
 		phiStarStar = caller.getFactor().getSubDistribution(overlapping);
-		// phiStarStar.print("PhiStarStar");
-		getOther(caller).propagateMessages(this);
+		divided = phiStarStar.divide(phiStar);
+		// phiStarStar.print("phiStarStar");
+		// divided.print("DIVIDED");
+		getOther(caller).propagateMessages(this, phiStarStar);
 	}
 	
 	public boolean contains(JunctionTreeNode<V> node) {

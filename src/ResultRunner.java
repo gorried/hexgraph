@@ -15,9 +15,9 @@ public class ResultRunner {
 		HEXGraphMethods methods = new HEXGraphMethods(factory, filepath);
 		
 		Map<String, Double> scores = new HashMap<String, Double>();
-		scores.put("A", Math.log(.5));
-		scores.put("B", Math.log(3));
-		scores.put("C", Math.log(4));
+		scores.put("A", Math.log(5));
+		scores.put("B", Math.log(.2));
+		scores.put("C", Math.log(.4));
 		
 		
 		JunctionTree<String> tree = methods.buildJunctionTree();

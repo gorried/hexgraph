@@ -154,8 +154,10 @@ public class HEXGraphMethods {
 	
 	public void exactInference(JunctionTree<String> tree) {
 		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = getJunctionTreeStateSpaces(tree);
-		tree.exactInference(tree.getFirst(), stateSpaces, mDenseGraph.getScoreMap());
-		tree.printFactors();
+		Map<Configuration<String>, Double> scores = 
+				tree.exactInference(listStateSpace(), stateSpaces, mDenseGraph.getScoreMap());
+		System.out.println(scores.toString());
+		// tree.printFactors();
 	}
 	
 	public Map<JunctionTreeNode<String>, Set<Configuration<String>>> getJunctionTreeStateSpaces(JunctionTree<String> tree) {
@@ -167,7 +169,6 @@ public class HEXGraphMethods {
 		}
 		return stateSpaces;
 	}
-	
 	
 	
 }

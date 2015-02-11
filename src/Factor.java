@@ -66,6 +66,10 @@ public class Factor<V> {
 		}
 	}
 	
+	public Set<V> getVariables() {
+		return variables;
+	}
+	
 	/**
 	 * Runs a sum over the certain subdistribtution
 	 * @param vars
@@ -104,15 +108,33 @@ public class Factor<V> {
 			for (Configuration<V> other : separator.distribution.keySet()) {
 				// other will be the smaller factor than config
 				if (other.isSubsumed(config)) {
-//					System.out.println("OWOWOWOWOWO");
-//					System.out.println(config);
-//					System.out.println(this.distribution.get(config));
-//					System.out.println(separator.distribution.get(other));
 					distribution.put(config, this.distribution.get(config) * separator.distribution.get(other));
 				}
 			}
 		}
 	}
+	
+	public Factor<V> divide(Factor<V> other) {
+		Factor<V> newFactor = getDeepCopy();
+		for (Configuration<V> config : this.distribution.keySet()) {
+			for (Configuration<V> otherConfig : other.distribution.keySet()) {
+				if (config.hasSameEntries(otherConfig)) {
+					this.distribution.put(config, this.distribution.get(config) / other.distribution.get(otherConfig));
+				}
+			}
+		}
+		return newFactor;
+	}
+	
+	public double getScoreIfSubsumed(Configuration<V> setting) {
+		for (Configuration<V> config : distribution.keySet()) {
+			if (config.isSubsumed(setting)) {
+				return distribution.get(config);
+			}
+		}
+		return -1;
+	}
+
 	
 	public void print(String name) {
 		System.out.println("PRINTING FACTOR "+ name + ":");
