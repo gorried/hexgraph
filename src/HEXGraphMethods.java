@@ -109,6 +109,18 @@ public class HEXGraphMethods {
 		Configuration<String> s0 = currentConfig.getDeepCopy();
 		Configuration<String> s1 = currentConfig;
 		
+		System.out.println("-------");
+		System.out.println(graph.getNodeList());
+		System.out.println(pivot);
+		System.out.println(graph.getAncestors(pivot));
+		System.out.println(graph.getDescendants(pivot));
+		System.out.println(graph.getExcluded(pivot));
+		System.out.println("-------");
+		System.out.println(v0);
+		System.out.println(v1);
+		System.out.println("-------");
+		
+		
 		// assign values from the direct relations TO HALF the graph
 		s0.setValues(pivot, Configuration.CONFIG_TRUE);
 		s0.setValues(graph.getAncestors(pivot), Configuration.CONFIG_TRUE);

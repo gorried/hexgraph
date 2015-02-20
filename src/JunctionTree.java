@@ -84,7 +84,6 @@ public class JunctionTree<V> {
 		Set<JunctionTreeEdge<V>> finalEdges = new HashSet<JunctionTreeEdge<V>>();
 		
 		while (!unseen.isEmpty()) {
-			System.out.println(finalEdges);
 			int maxCount = -1;
 			JunctionTreeEdge<V> bestEdge = null;
 			if (finalEdges.isEmpty()) {
@@ -135,6 +134,7 @@ public class JunctionTree<V> {
 		}
 		this.edges.addAll(finalEdges);
 		
+		System.out.println("EDGES: " + this.edges);
 	}
 	
 	public Map<Configuration<V>, Double> exactInference(Set<Configuration<V>> graphStateSpace,
@@ -418,7 +418,7 @@ class JunctionTreeEdge<V> {
 	
 	@Override
 	public String toString() {
-		return first.toString() + "\n" + second.toString() + "\n" + weight;
+		return "\n" + first.toString() + " <--" + weight + "--> " + second.toString();
 	}
 
 }

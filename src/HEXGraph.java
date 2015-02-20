@@ -192,17 +192,15 @@ public class HEXGraph<V> implements Serializable {
 	/**
 	 * Removes the node with the given label, as well as all edges coming from and going to it.
 	 * 
-	 * NOTE: this method should not be called if the proper HEXGraph construction procedure is
-	 * being followed.
-	 * 
 	 * @param label The label of the node being removed
 	 * @return True if the node and corresponding edges was removed successfully, false otherwise.
 	 */
 	public void deleteNode(V label) {
-		for (V v : nodes.keySet()) {
-			nodes.get(v).removeEdges(nodes.get(label));
-		}
+		GraphNode<V> toRemove = nodes.get(label);
 		nodes.remove(label);
+		for (V v : nodes.keySet()) {
+			nodes.get(v).removeEdges(toRemove);
+		}
 	}
 
 	/**
@@ -442,7 +440,6 @@ public class HEXGraph<V> implements Serializable {
 		// that need to be triangulated and then remove the current node from the copy of the graph
 		
 		for (V label : copy.getNodeSet()) {
-			System.out.println("Label: " + label);
 			for (V first : copy.getTriangulatedNeighbors(label)) {
 				for (V second : copy.getTriangulatedNeighbors(label)) {
 					if (!first.equals(second)) {
@@ -608,7 +605,7 @@ public class HEXGraph<V> implements Serializable {
 		private static final long serialVersionUID = -3158134210978319197L;
 		
 		/**
-		 * Descriptor of the classs
+		 * Descriptor of the class
 		 */
 		private final V label;
 		
@@ -729,6 +726,7 @@ public class HEXGraph<V> implements Serializable {
 		public Set<GraphNode<V>> getAncestors() {
 			Set<GraphNode<V>> set = new HashSet<GraphNode<V>>();
 			try {
+				System.out.println("In ancestors: " + nodes.keySet());
 				for (V v : (Set<V>) nodes.keySet()) {
 					if (nodes.get(v).getDescendants().contains(this)) {
 						set.add((GraphNode<V>)nodes.get(v));
@@ -798,7 +796,10 @@ public class HEXGraph<V> implements Serializable {
 			edgeRemovalHelper(head, hierarchy);
 			edgeRemovalHelper(head, excluded);
 			edgeRemovalHelper(head, triangulated);
-			return !excluded.contains(head) && !excluded.contains(head);
+			if (triangulated.contains(head) || hierarchy.contains(head) || excluded.contains(head)) {
+				throw new IllegalStateException("Node not actually removed");
+			}
+			return !excluded.contains(head) && !triangulated.contains(head);
 		}
 		
 		/**

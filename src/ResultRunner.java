@@ -18,6 +18,7 @@ public class ResultRunner {
 		scores.put("A", Math.log(5));
 		scores.put("B", Math.log(.2));
 		scores.put("C", Math.log(.4));
+		scores.put("D", Math.log(.8));
 		
 		
 		JunctionTree<String> tree = methods.buildJunctionTree();
