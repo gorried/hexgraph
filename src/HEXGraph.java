@@ -249,18 +249,6 @@ public class HEXGraph<V> implements Serializable {
 	}
 	
 	/**
-	 * Returns the relationship between the node with the label desired and the node with the
-	 * label other
-	 * 
-	 * @param desired the pivot node
-	 * @param other the other node
-	 * @return the relationship between desired and other
-	 */
-	public Relationship getRelationship(V desired, V other) {
-		return nodes.get(desired).getRelationship(nodes.get(other));
-	}
-	
-	/**
 	 * Checks to see if the specified node exists in the graph.
 	 * 
 	 * @param label The label of the node being searched for.
@@ -284,8 +272,10 @@ public class HEXGraph<V> implements Serializable {
 	public Set<V> getAncestors(V label) {
 		if (hasNode(label)) {
 			Set<V> set = new HashSet<V>();
-			for (GraphNode<V> node : nodes.get(label).getAncestors()) {
-				set.add(node.getLabel());
+			for (V node : nodes.keySet()) {
+				if (nodes.get(node).getDescendants().contains(nodes.get(label))) {					
+					set.add(node);
+				}
 			}
 			return set;
 		} else {
@@ -702,44 +692,6 @@ public class HEXGraph<V> implements Serializable {
 		}
 		
 		/**
-		 * Returns the relationship between this and the given node
-		 * @return Relationship.{NONE, HIERARCHY_SUPER, EXCLUSION}
-		 */
-		public Relationship getRelationship(GraphNode<V> n) {
-			if (getAncestors().contains(n)) {
-				return Relationship.HIERARCHY_SUPER;
-			} else if (getDescendants().contains(n)) {
-				return Relationship.HIERARCHY_SUB;
-			} else if (excluded.contains(n)) {
-				return Relationship.EXCLUSION;
-			} else {
-				return Relationship.OVERLAPPING;
-			}
-		}
-		
-		/**
-		 * Returns a set of all ancestors for this class
-		 * 
-		 * @return a set of all ancestors of this node.
-		 */
-		@SuppressWarnings("unchecked")
-		public Set<GraphNode<V>> getAncestors() {
-			Set<GraphNode<V>> set = new HashSet<GraphNode<V>>();
-			try {
-				System.out.println("In ancestors: " + nodes.keySet());
-				for (V v : (Set<V>) nodes.keySet()) {
-					if (nodes.get(v).getDescendants().contains(this)) {
-						set.add((GraphNode<V>)nodes.get(v));
-					}
-				}
-			} catch (ClassCastException e) {
-				System.err.println("Class catch exception caught in getHierarchySuperset");
-				System.err.println(e.getMessage());
-			} 
-			return set;
-		}
-		
-		/**
 		 * Returns the set of all descendants for this class (the entire subtree rooted at this
 		 * class)
 		 * 
@@ -863,10 +815,4 @@ public class HEXGraph<V> implements Serializable {
 		}
 	}
 	
-	public enum Relationship {
-		HIERARCHY_SUB,
-		HIERARCHY_SUPER,
-		EXCLUSION,
-		OVERLAPPING;
-	}
 }
