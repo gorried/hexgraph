@@ -67,13 +67,7 @@ class Configuration<V> implements Serializable {
 		if (classes.isEmpty()) {
 			return true;
 		}
-		System.out.println("To set " + classes + " to value " + val);
 		for (V item : classes) {
-			System.out.println("Item: " + item);
-			System.out.println("Config: " + config);
-			if (item == null) {
-				System.out.println("null item...");
-			}
 			int curr = config.get(item);
 			if (!(curr == UNSET || curr == val)) {
 				return false;

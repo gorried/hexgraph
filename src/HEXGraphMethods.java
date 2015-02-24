@@ -109,18 +109,6 @@ public class HEXGraphMethods {
 		Configuration<String> s0 = currentConfig.getDeepCopy();
 		Configuration<String> s1 = currentConfig;
 		
-		System.out.println("-------");
-		System.out.println(graph.getNodeList());
-		System.out.println(pivot);
-		System.out.println(graph.getAncestors(pivot));
-		System.out.println(graph.getDescendants(pivot));
-		System.out.println(graph.getExcluded(pivot));
-		System.out.println("-------");
-		System.out.println(v0);
-		System.out.println(v1);
-		System.out.println("-------");
-		
-		
 		// assign values from the direct relations TO HALF the graph
 		s0.setValues(pivot, Configuration.CONFIG_TRUE);
 		s0.setValues(graph.getAncestors(pivot), Configuration.CONFIG_TRUE);
@@ -168,8 +156,15 @@ public class HEXGraphMethods {
 		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = getJunctionTreeStateSpaces(tree);
 		Map<Configuration<String>, Double> scores = 
 				tree.exactInference(listStateSpace(), stateSpaces, mDenseGraph.getScoreMap());
-		System.out.println(scores.toString());
-		// tree.printFactors();
+		Configuration<String> bestConfig = null;
+		double bestScore = -1;
+		for (Configuration<String> config : scores.keySet()) {
+			if (scores.get(config) > bestScore) {
+				bestScore = scores.get(config);
+				bestConfig = config;
+			}
+		}
+		System.out.println("Best Configuration is " + bestConfig.toString() + "with score " + bestScore);
 	}
 	
 	public Map<JunctionTreeNode<String>, Set<Configuration<String>>> getJunctionTreeStateSpaces(JunctionTree<String> tree) {

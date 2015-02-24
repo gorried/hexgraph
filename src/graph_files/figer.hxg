@@ -6334,6 +6334,7 @@
 /person: /person/soldier
 /organization: /organization/fraternity_sorority
 /organization: /organization/sports_league
+/organization: /organization/sports_team
 /building: /building/power_station
 /building: /building/sports_facility
 /organization: /government/political_party

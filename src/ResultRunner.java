@@ -9,20 +9,18 @@ public class ResultRunner {
 	
 	public static void main(String[] args) throws IOException, IllegalStateException{
 		HEXGraphFactory factory = new HEXGraphFactory();
-		String filepath = "src/test.hxg";
+		String filepath = "src/graph_files/figer.hxg";
 		factory.buildHEXGraph(filepath);
 		
 		HEXGraphMethods methods = new HEXGraphMethods(factory, filepath);
 		
-		Map<String, Double> scores = new HashMap<String, Double>();
-		scores.put("A", Math.log(5));
-		scores.put("B", Math.log(.2));
-		scores.put("C", Math.log(.4));
-		scores.put("D", Math.log(.8));
-		
+		Map<String, Double> scores = factory.getScores("src/score_files/predictions2.txt");
+		System.out.println("Done loading scores \n");
 		
 		JunctionTree<String> tree = methods.buildJunctionTree();
+		System.out.println("Done building tree \n");
 		methods.setScores(scores);
+		System.out.println("Now exacting inference \n");
 		methods.exactInference(tree);
 		
 	}

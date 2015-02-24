@@ -39,7 +39,7 @@ public class JunctionTree<V> {
 			if (nodeConsumes(node, members)) return;
 		}
 		nodes.add(new JunctionTreeNode<V>(members));
-		System.out.println("added node " + members.toString() + " to tree");
+		System.out.println("added node " + members.size() + " " + members.toString());
 	}
 	
 	private void addEdge(JunctionTreeNode<V> first, JunctionTreeNode<V> second) {
@@ -134,7 +134,10 @@ public class JunctionTree<V> {
 		}
 		this.edges.addAll(finalEdges);
 		
-		System.out.println("EDGES: " + this.edges);
+		System.out.print("EDGES: ");
+		for (JunctionTreeEdge<V> edge : this.edges) {
+			System.out.println(edge.weight + edge.toString());
+		}
 	}
 	
 	public Map<Configuration<V>, Double> exactInference(Set<Configuration<V>> graphStateSpace,
@@ -154,21 +157,21 @@ public class JunctionTree<V> {
 		for (Configuration<V> config : graphStateSpace) {
 			double numerator = 1.0;
 			double denominator = 1.0;
-			System.out.println(config.toString());
-			System.out.print("Numerator: ");
+//			System.out.println(config.toString());
+//			System.out.print("Numerator: ");
 			for (JunctionTreeNode<V> node : nodes) {
 				numerator *= node.getFactor().getScoreIfSubsumed(config);
-				System.out.print(node.getFactor().getScoreIfSubsumed(config));
-				System.out.print(" ");
+//				System.out.print(node.getFactor().getScoreIfSubsumed(config));
+//				System.out.print(" ");
 			}
-			System.out.println();
-			System.out.print("Denominator: ");
+//			System.out.println();
+//			System.out.print("Denominator: ");
 			for (JunctionTreeEdge<V> edge : edges) {
 				denominator *= edge.getDivided().getScoreIfSubsumed(config);
-				System.out.println(edge.getDivided().getScoreIfSubsumed(config));
-				System.out.print(" ");
+//				System.out.println(edge.getDivided().getScoreIfSubsumed(config));
+//				System.out.print(" ");
 			}
-			System.out.println("-----");
+//			System.out.println("-----");
 			// tune for the repeated factors. We know a factor is a "super" factor if it
 			// appears in an edge.
 			for (V element : config.getKeySet()) {
@@ -279,8 +282,8 @@ class JunctionTreeNode<V> {
 	Factor<V> collectMessages(JunctionTreeNode<V> parent,
 			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
 			Map<V, Double> scoreMap) {
-		System.out.println("THIS NODE " + getMembers());
-		System.out.println("PARENT " + parent);
+//		System.out.println("THIS NODE " + getMembers());
+//		System.out.println("PARENT " + parent);
 		// base case: this node doesnt have any neighbors that arent parent (leaf)
 		if (edges.size() == 1 && parent != null) {
 			// we know that the only neighbor is parent

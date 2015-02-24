@@ -54,6 +54,26 @@ public class HEXGraphFactory {
 		return mLiteralGraphs.get(key);
 	}
 	
+	public Map<String, Double> getScores(String filepath) throws IOException {
+		BufferedReader bufferedReader = new BufferedReader(new FileReader(filepath));
+		Map<String, Double> scores = new HashMap<String, Double>();
+		
+		try {
+			String line = bufferedReader.readLine();
+			while (line != null) {
+				String[] terms = line.split("\\s+");
+				scores.put(terms[0], Double.parseDouble(terms[1]) + 1);
+				line = bufferedReader.readLine();
+			}
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+			e.printStackTrace();
+		} finally {
+			bufferedReader.close();
+		}
+		return scores;
+	}
+	
 	public void buildHEXGraph(String filepath) throws IOException {
 		HEXGraph<String> literalGraph = new HEXGraph<String>();
 		HEXGraph<String> sparseGraph = new HEXGraph<String>();
