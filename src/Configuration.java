@@ -68,19 +68,14 @@ class Configuration<V> implements Serializable {
 			return true;
 		}
 		for (V item : classes) {
-			int curr = config.get(item);
-			if (!(curr == UNSET || curr == val)) {
-				return false;
-			} else {
-				config.put(item, val);
-			}
+			setValues(item, val);
 		}
 		return true;
 	}
 	
 	public boolean setValues(V item, int val) {
 		int curr = config.get(item);
-		if (!(curr == UNSET || curr == val)) {
+		if (curr == val) {
 			return false;
 		} else {
 			config.put(item, val);

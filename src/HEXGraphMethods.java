@@ -8,6 +8,7 @@ import java.util.Set;
 
 
 
+
 public class HEXGraphMethods {
 	
 	private HEXGraph<String> mDenseGraph;
@@ -22,6 +23,17 @@ public class HEXGraphMethods {
 		selectGraph(factory, key);
 	}
 	
+	public void printProbableHierarchies() {
+		for (String node : mDenseGraph.getNodeList()) {
+			for (String other : mDenseGraph.getNodeList()) {
+				if (node.length() < other.length() && other.substring(0,node.length()).equals(node)) {
+					if (!mDenseGraph.getDescendants(node).contains(other)){						
+						System.out.println(String.format("%s -> %s", node, other));
+					}
+				}
+			}
+		}
+	}
 	
 	/**
 	 * Select a graph to list the state space for. We are using the maximally dense equivalent
@@ -152,7 +164,7 @@ public class HEXGraphMethods {
 		mDenseGraph.setScores(scores);
 	}
 	
-	public void exactInference(JunctionTree<String> tree) {
+	public Map<Configuration<String>, Double> exactInference(JunctionTree<String> tree) {
 		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = getJunctionTreeStateSpaces(tree);
 		Map<Configuration<String>, Double> scores = 
 				tree.exactInference(listStateSpace(), stateSpaces, mDenseGraph.getScoreMap());
@@ -164,7 +176,27 @@ public class HEXGraphMethods {
 				bestConfig = config;
 			}
 		}
-		System.out.println("Best Configuration is " + bestConfig.toString() + "with score " + bestScore);
+		// System.out.println("Best Configuration is " + bestConfig.toString() + "with score " + bestScore);
+		Map<Configuration<String>, Double> finalMap = new HashMap<Configuration<String>, Double>();
+		finalMap.put(bestConfig, bestScore);
+		if (Math.abs(bestScore - 1.0) < 0.005) {
+			scores.put(bestConfig, -1.0);
+			bestConfig = null;
+			bestScore = -1;
+			for (Configuration<String> config : scores.keySet()) {
+				if (scores.get(config) > bestScore) {
+					bestScore = scores.get(config);
+					bestConfig = config;
+				}
+			}
+			finalMap.put(bestConfig, bestScore);
+		}
+		return finalMap;
+	}
+	
+	public Map<String, Double> exactMarginalInference(JunctionTree<String> tree) {
+		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = getJunctionTreeStateSpaces(tree);
+		return tree.exactMarginalInference(listStateSpace(), stateSpaces, mDenseGraph.getScoreMap());
 	}
 	
 	public Map<JunctionTreeNode<String>, Set<Configuration<String>>> getJunctionTreeStateSpaces(JunctionTree<String> tree) {

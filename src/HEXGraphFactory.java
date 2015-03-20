@@ -1,7 +1,10 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -62,7 +65,7 @@ public class HEXGraphFactory {
 			String line = bufferedReader.readLine();
 			while (line != null) {
 				String[] terms = line.split("\\s+");
-				scores.put(terms[0], Double.parseDouble(terms[1]) + 1);
+				scores.put(terms[0], Double.parseDouble(terms[1]));
 				line = bufferedReader.readLine();
 			}
 		} catch (Exception e) {
@@ -93,7 +96,7 @@ public class HEXGraphFactory {
 					literalGraph.addNode(line);
 					sparseGraph.addNode(line);
 					denseGraph.addNode(line);
-					System.out.println(String.format("Added node %s", line));
+					// System.out.println(String.format("Added node %s", line));
 				}
 				line = mBufferedReader.readLine();
 			}
@@ -117,7 +120,7 @@ public class HEXGraphFactory {
 								} else {
 									sparseGraph.addExclusion(terms[i], terms[j]);
 									denseGraph.addExclusion(terms[i], terms[j]);
-									System.out.println(String.format("Added exlusion between %s and %s", terms[i], terms[j]));
+									// System.out.println(String.format("Added exlusion between %s and %s", terms[i], terms[j]));
 								}
 							}
 						}
@@ -148,7 +151,7 @@ public class HEXGraphFactory {
 							} else {
 								sparseGraph.addHierarchy(first, terms[i]);
 								denseGraph.addHierarchy(first, terms[i]);
-								System.out.println(String.format("Added hierarchy between %s and %s", first, terms[i]));
+								// System.out.println(String.format("Added hierarchy between %s and %s", first, terms[i]));
 							}
 						}
 					}
@@ -168,6 +171,17 @@ public class HEXGraphFactory {
 			mLiteralGraphs.put(filepath, literalGraph);
 			mSparseGraphs.put(filepath, sparseGraph);
 			mDenseGraphs.put(filepath, denseGraph);
+			
+			// Print out all pairs of excludsions
+//			File outputFile = new File("src/output_files/temp_out.txt");
+//			PrintWriter writer = new PrintWriter(outputFile.getPath(), "UTF-8");
+//			List<String> nodeList = sparseGraph.getNodeList();
+//			for (int i = 0; i < nodeList.size(); i++) {
+//				for (int j = i+1; j < nodeList.size(); j++) {
+//					writer.println(nodeList.get(i) + " " + nodeList.get(j));
+//				}
+//			}
+//			writer.close();
 			
 		} catch (Exception e) {
 			System.err.println(e.getMessage());

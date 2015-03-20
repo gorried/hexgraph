@@ -132,7 +132,7 @@ public class Factor<V> {
 				return distribution.get(config);
 			}
 		}
-		return -1;
+		return 1;
 	}
 
 	

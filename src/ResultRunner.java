@@ -1,51 +1,127 @@
+import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
 
 
 public class ResultRunner {
+	public static String rawDirectory = "src/score_files/figer-hex/raw";
+	public static String scoreDirectory = "src/score_files/figer-hex/scores";
+	public static String outputDirectory = "src/output_files";
+	public static String graphDirectory = "src/graph_files/figer";
+	public static boolean MARGINAL = true;
 	
-	public static void main(String[] args) throws IOException, IllegalStateException{
+	public static void main(String[] args) throws IOException, IllegalStateException {
 		HEXGraphFactory factory = new HEXGraphFactory();
-		String filepath = "src/graph_files/figer.hxg";
-		factory.buildHEXGraph(filepath);
 		
-		HEXGraphMethods methods = new HEXGraphMethods(factory, filepath);
-		
-		Map<String, Double> scores = factory.getScores("src/score_files/predictions2.txt");
-		System.out.println("Done loading scores \n");
-		
-		JunctionTree<String> tree = methods.buildJunctionTree();
-		System.out.println("Done building tree \n");
-		methods.setScores(scores);
-		System.out.println("Now exacting inference \n");
-		methods.exactInference(tree);
-		
-	}
-	
-	public static void printGraph(HEXGraph<String> graph, String name) {
-		System.out.println(name + "\n");
-		for (String s : graph.getNodeList()) {
-			System.out.println(s);
-			System.out.println(String.format("Descendants: %s", graph.getDescendants(s).toString()));
-			System.out.println(String.format("Exclusion: %s", graph.getExcluded(s).toString()));
+		// Check if the output directory exists, and if not, make it
+		File outputDir = new File(outputDirectory);
+		if (!outputDir.exists()) {
+			outputDir.mkdirs();
 		}
-		System.out.println("\n");
-	}
-	
-	
-	public static void printTriangulated(HEXGraph<String> graph, String name) {
-		System.out.println(name + "\n");
-		for (String s : graph.getNodeList()) {
-			System.out.println(s);
-			System.out.println(String.format("Neighbors: %s", graph.getTriangulatedNeighbors(s).toString()));
+		
+		File graphDir = new File(graphDirectory);
+		File[] graphDirectoryListing = graphDir.listFiles();
+		if (graphDirectoryListing != null) {
+			for (File graphFile : graphDirectoryListing) {
+				String filepath = graphFile.getPath();
+				
+				File outputSubDir = new File(outputDir.getPath() + "/" + graphFile.getName().split("\\.")[0]);
+				if (!outputSubDir.exists()) {
+					outputSubDir.mkdirs();
+				}
+				
+				factory.buildHEXGraph(filepath);
+				HEXGraphMethods methods = new HEXGraphMethods(factory, filepath);
+				System.out.println("Built graph from" + filepath);
+				
+				JunctionTree<String> tree = methods.buildJunctionTree();
+				System.out.println("Done building tree");
+				
+				// iterate through the score directory and 
+				File scoreDir = new File(scoreDirectory);
+				File[] scoreDirectoryListing = scoreDir.listFiles();
+				if (scoreDirectoryListing != null) {
+					for (File scoreFile : scoreDirectoryListing) {
+						Map<String, Double> scores = factory.getScores(scoreFile.getPath());
+						methods.setScores(scores);
+						System.out.println(String.format("Now exacting inference on %s", scoreFile.getName()));
+						if (MARGINAL) {
+							runMarginalInference(methods, scoreFile, outputSubDir, tree);
+							runJointInference(methods, scoreFile, outputSubDir, tree);
+						} else {
+							runJointInference(methods, scoreFile, outputSubDir, tree);
+						}
+					}
+				} else {
+					throw new IOException(scoreDirectory + " is not a directory");
+				}
+			}
+		} else {
+			throw new IOException(graphDirectory + " is not a directory");
 		}
-		System.out.println("\n");
+		
 	}
 	
-	public static void printOrdering(List<String> ordering) {
-		System.out.println(ordering.toString());
+	public static void runMarginalInference(HEXGraphMethods methods, File scoreFile, 
+			File outputSubDir, JunctionTree<String> tree) throws IOException, IllegalStateException {
+		Map<String, Double> resultMap = methods.exactMarginalInference(tree);
+		
+		File outputFile = new File(outputSubDir.getPath() + "/marginal_" + scoreFile.getName());
+		PrintWriter writer = new PrintWriter(outputFile.getPath(), "UTF-8");
+		
+		Scanner sc = new Scanner(new File(rawDirectory + "/" + scoreFile.getName()));
+		try {
+			writer.println(sc.useDelimiter("\\Z").next() + "\n");
+		} catch (NoSuchElementException e) {
+			writer.println("Unable to copy over sentence \n");
+		} finally {							
+			sc.close();
+		}
+		for (String s : resultMap.keySet()) {
+			// System.out.println(s + ": " + resultMap.get(s));
+			writer.println(String.format("%s: %f", s, resultMap.get(s)));
+		}
+		writer.close();
+	}
+	
+	public static void runJointInference(HEXGraphMethods methods, File scoreFile, 
+			File outputSubDir, JunctionTree<String> tree) throws IOException, IllegalStateException {
+		Map<Configuration<String>, Double> scoreMap = methods.exactInference(tree);
+		
+		File outputFile = new File(outputSubDir.getPath() + "/joint_" + scoreFile.getName());
+		PrintWriter writer = new PrintWriter(outputFile.getPath(), "UTF-8");
+		
+		Scanner sc = new Scanner(new File(rawDirectory + "/" + scoreFile.getName()));
+		try {
+			writer.println(sc.useDelimiter("\\Z").next() + "\n");
+		} catch (NoSuchElementException e) {
+			writer.println("Unable to copy over sentence \n");
+		} finally {							
+			sc.close();
+		}
+		
+		for (Configuration<String> key : scoreMap.keySet()) {
+			boolean zeroFlag = true;
+			for (String s : key.getKeySet()) {
+				if (key.get(s) == Configuration.CONFIG_TRUE) {
+					zeroFlag = false;
+					writer.println(String.format("%s: 1", s));
+				}
+			}
+			if (zeroFlag) {
+				writer.println("No positive assignments");
+			}
+			writer.println();
+			writer.println(scoreMap.get(key));
+			writer.println();
+			writer.println("----------");
+			writer.println();
+			
+		}
+		writer.close();
 	}
 }
