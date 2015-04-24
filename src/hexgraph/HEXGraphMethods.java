@@ -1,9 +1,11 @@
+package hexgraph;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import util.Pair;
 
 
 
@@ -33,6 +35,10 @@ public class HEXGraphMethods {
 				}
 			}
 		}
+	}
+	
+	public String[] getClassNames() {
+		return mDenseGraph.getNodeList().toArray(new String[10]);
 	}
 	
 	/**
@@ -192,6 +198,20 @@ public class HEXGraphMethods {
 			finalMap.put(bestConfig, bestScore);
 		}
 		return finalMap;
+	}
+	
+	public Pair<Configuration<String>, Double> exactPairInference(JunctionTree<String> tree) {
+		Map<Configuration<String>, Double> scores = 
+				tree.exactInference(listStateSpace(), getJunctionTreeStateSpaces(tree), mDenseGraph.getScoreMap());
+		Configuration<String> bestConfig = null;
+		double bestScore = -1;
+		for (Configuration<String> config : scores.keySet()) {
+			if (scores.get(config) > bestScore) {
+				bestScore = scores.get(config);
+				bestConfig = config;
+			}
+		}
+		return new Pair<Configuration<String>, Double>(bestConfig, bestScore);
 	}
 	
 	public Map<String, Double> exactMarginalInference(JunctionTree<String> tree) {

@@ -1,10 +1,11 @@
+package hexgraph;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-class Configuration<V> implements Serializable {
+public class Configuration<V> implements Serializable {
 	public static final int CONFIG_FALSE = 0;
 	public static final int CONFIG_TRUE = 1;
 	public final int UNSET = -1;

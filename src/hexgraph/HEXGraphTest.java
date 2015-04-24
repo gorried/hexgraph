@@ -1,3 +1,4 @@
+package hexgraph;
 
 import static org.junit.Assert.assertEquals;
 
