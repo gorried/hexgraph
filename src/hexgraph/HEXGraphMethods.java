@@ -16,6 +16,8 @@ public class HEXGraphMethods {
 	private HEXGraph<String> mDenseGraph;
 	private HEXGraph<String> mSparseGraph;
 	
+	private Map<HEXGraph<String>, Set<Configuration<String>>> mStateSpaceMapping;
+	
 	/**
 	 * Constructor that initializes the graph. The graph can be changed at a later time with the
 	 * selectGraph. Null can be passed in as the parameters to this constructor to create an
@@ -23,6 +25,7 @@ public class HEXGraphMethods {
 	 */
 	public HEXGraphMethods(HEXGraphFactory factory, String key) {
 		selectGraph(factory, key);
+		mStateSpaceMapping = new HashMap<HEXGraph<String>, Set<Configuration<String>>>();
 	}
 	
 	public void printProbableHierarchies() {
@@ -61,12 +64,15 @@ public class HEXGraphMethods {
 		// Check to make sure graph is not empty
 		if (mDenseGraph.isEmpty()) {
 			return new HashSet<Configuration<String>>();
+		} else if (mStateSpaceMapping.containsKey(mDenseGraph)) {
+			return mStateSpaceMapping.get(mDenseGraph);
+		} else {
+			Set<Configuration<String>> configSet = new HashSet<Configuration<String>>();
+			listStateSpace(new Configuration<String>(mDenseGraph.getNodeSet()), configSet, mDenseGraph);	
+			
+			mStateSpaceMapping.put(mDenseGraph, configSet);
+			return configSet;
 		}
-		
-		Set<Configuration<String>> configSet = new HashSet<Configuration<String>>();
-		listStateSpace(new Configuration<String>(mDenseGraph.getNodeSet()), configSet, mDenseGraph);	
-		
-		return configSet;
 	}
 	
 	/**
@@ -78,12 +84,16 @@ public class HEXGraphMethods {
 		// Check to make sure graph is not empty
 		if (graph.isEmpty()) {
 			return new HashSet<Configuration<String>>();
+		} else if (mStateSpaceMapping.containsKey(graph)) {
+			return mStateSpaceMapping.get(graph);
+		} else {
+			Set<Configuration<String>> configSet = new HashSet<Configuration<String>>();
+			listStateSpace(new Configuration<String>(graph.getNodeSet()), configSet, graph);
+			
+			mStateSpaceMapping.put(graph, configSet);
+			return configSet;
 		}
 		
-		Set<Configuration<String>> configSet = new HashSet<Configuration<String>>();
-		listStateSpace(new Configuration<String>(graph.getNodeSet()), configSet, graph);	
-		
-		return configSet;
 	}
 	
 	/**
@@ -216,7 +226,7 @@ public class HEXGraphMethods {
 	
 	public Map<String, Double> exactMarginalInference(JunctionTree<String> tree) {
 		Map<JunctionTreeNode<String>, Set<Configuration<String>>> stateSpaces = getJunctionTreeStateSpaces(tree);
-		return tree.exactMarginalInference(listStateSpace(), stateSpaces, mDenseGraph.getScoreMap());
+		return tree.exactMarginalInference(mDenseGraph.getNodeSet(), stateSpaces, mDenseGraph.getScoreMap());
 	}
 	
 	public Map<JunctionTreeNode<String>, Set<Configuration<String>>> getJunctionTreeStateSpaces(JunctionTree<String> tree) {

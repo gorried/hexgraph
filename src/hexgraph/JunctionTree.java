@@ -149,6 +149,7 @@ public class JunctionTree<V> {
 		if (root.getNeighbors().size() == 0) {
 			// dont know what to do here
 			System.out.println("Root has cardinality zero....");
+			printTreeStats();
 		}
 		root.collectMessages(null, stateSpaces, scoreMap);
 		root.propagateMessages(null, null);
@@ -191,7 +192,7 @@ public class JunctionTree<V> {
 	}
 	
 	
-	public Map<V, Double> exactMarginalInference(Set<Configuration<V>> graphStateSpace,
+	public Map<V, Double> exactMarginalInference(Set<V> nodeSet,
 			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
 			Map<V, Double> scoreMap) {
 		JunctionTreeNode<V> root = getFirst();
@@ -200,56 +201,63 @@ public class JunctionTree<V> {
 			// dont know what to do here
 			System.out.println("Root has cardinality zero....");
 		}
+		long startTime = System.currentTimeMillis();
 		root.collectMessages(null, stateSpaces, scoreMap);
-		root.propagateMessages(null, null);
+		long endTime = System.currentTimeMillis();
+		System.out.println(String.format("Collecting messages took %d ms", endTime - startTime));
 		
+		startTime = System.currentTimeMillis();
+		root.propagateMessages(null, null);
+		endTime = System.currentTimeMillis();
+		System.out.println(String.format("Propagating messages took %d ms", endTime - startTime));
+		
+		startTime = System.currentTimeMillis();
 		// All the nodes and edges are stored in a field
 		Map<V, Double> configScores = new HashMap<V, Double>();
-		for (Configuration<V> config : graphStateSpace) {
-			for (V element : config.getKeySet()) {
-				double pNode1 = 1.0;
-				double pNode0 = 1.0;
-				double pSeparator0 = 1.0;
-				double pSeparator1 = 1.0;
-				for (JunctionTreeEdge<V> edge : edges) {
-					if (edge.phiStar.getVariables().contains(element)) {
-						Set<V> elemSet = new HashSet<V>();
-						elemSet.add(element);
-						Factor<V> summedOut = edge.phiStar.getSubDistribution(elemSet);
-						Configuration<V> query = new Configuration<V>(elemSet);
-						
-						query.setValues(element, Configuration.CONFIG_TRUE);
-						// System.out.println(query.toString());
-						pSeparator1 *= summedOut.getScoreIfSubsumed(query);
-						
-						query.setValues(element, Configuration.CONFIG_FALSE);
-						// System.out.println(query.toString());
-						pSeparator0 *= summedOut.getScoreIfSubsumed(query);
-					}
+		for (V element : nodeSet) {
+			double pNode1 = 1.0;
+			double pNode0 = 1.0;
+			double pSeparator0 = 1.0;
+			double pSeparator1 = 1.0;
+			for (JunctionTreeEdge<V> edge : edges) {
+				if (edge.phiStar.getVariables().contains(element)) {
+					Set<V> elemSet = new HashSet<V>();
+					elemSet.add(element);
+					Factor<V> summedOut = edge.phiStar.getSubDistribution(elemSet);
+					Configuration<V> query = new Configuration<V>(elemSet);
+					
+					query.setValues(element, Configuration.CONFIG_TRUE);
+					// System.out.println(query.toString());
+					pSeparator1 *= summedOut.getScoreIfSubsumed(query);
+					
+					query.setValues(element, Configuration.CONFIG_FALSE);
+					// System.out.println(query.toString());
+					pSeparator0 *= summedOut.getScoreIfSubsumed(query);
 				}
-				for (JunctionTreeNode<V> node : nodes) {
-					if (node.getMembers().contains(element)) {
-						Set<V> elemSet = new HashSet<V>();
-						elemSet.add(element);
-						Factor<V> summedOut = node.getFactor().getSubDistribution(elemSet);
-						// summedOut.print("Summed out");
-						Configuration<V> query = new Configuration<V>(elemSet);
-						
-						query.setValues(element, Configuration.CONFIG_TRUE);
-						pNode1 *= summedOut.getScoreIfSubsumed(query);
-						
-						query.setValues(element, Configuration.CONFIG_FALSE);
-						pNode0 *= summedOut.getScoreIfSubsumed(query);
-					}
-				}
-				// System.out.println(String.format("%.6f %.6f || %.6f %.6f", pNode1, pSeparator1, pNode0, pSeparator0));
-				double m1 = pNode1 / pSeparator1;
-				double m0 = pNode0 / pSeparator0;
-				// System.out.println(m1 + " " + m0);
-				configScores.put(element, m1 / (m0 + m1));
 			}
-			return configScores;
+			for (JunctionTreeNode<V> node : nodes) {
+				if (node.getMembers().contains(element)) {
+					Set<V> elemSet = new HashSet<V>();
+					elemSet.add(element);
+					Factor<V> summedOut = node.getFactor().getSubDistribution(elemSet);
+					// summedOut.print("Summed out");
+					Configuration<V> query = new Configuration<V>(elemSet);
+					
+					query.setValues(element, Configuration.CONFIG_TRUE);
+					pNode1 *= summedOut.getScoreIfSubsumed(query);
+					
+					query.setValues(element, Configuration.CONFIG_FALSE);
+					pNode0 *= summedOut.getScoreIfSubsumed(query);
+				}
+			}
+			// System.out.println(String.format("%.6f %.6f || %.6f %.6f", pNode1, pSeparator1, pNode0, pSeparator0));
+			double m1 = pNode1 / pSeparator1;
+			double m0 = pNode0 / pSeparator0;
+			// System.out.println(m1 + " " + m0);
+			configScores.put(element, m1 / (m0 + m1));
 		}
+		endTime = System.currentTimeMillis();
+		System.out.println(String.format("Merging results took %d ms", endTime - startTime));
 		return configScores;
 	}
 	
@@ -264,6 +272,10 @@ public class JunctionTree<V> {
 			edge.phiStar.print("phistar");
 			edge.phiStarStar.print("phistarstar");
 		}
+	}
+	
+	public void printTreeStats() {
+		System.out.println(String.format("This tree contains %d nodes and %d edges", nodes.size(), edges.size()));
 	}
 	
 }

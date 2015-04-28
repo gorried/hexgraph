@@ -50,9 +50,9 @@ public class ResultRunner {
 						Map<String, Double> scores = factory.getScores(scoreFile.getPath());
 						methods.setScores(scores);
 						System.out.println(String.format("Now exacting inference on %s", scoreFile.getName()));
+						tree.printTreeStats();
 						if (MARGINAL) {
 							runMarginalInference(methods, scoreFile, outputSubDir, tree);
-							runJointInference(methods, scoreFile, outputSubDir, tree);
 						} else {
 							runJointInference(methods, scoreFile, outputSubDir, tree);
 						}

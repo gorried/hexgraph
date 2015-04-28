@@ -23,6 +23,12 @@ public class LogRegClassifier {
 		lambda = lam;
 	}
 	
+	public LogRegClassifier(SparseVector weights, double e, double lam) {
+		w = weights;
+		eta = e;
+		lambda = lam;
+	}
+	
 	public void train(SparseVector instance) {
 		// compute P(y = 1|w,x)
 		double prob = w.dot(instance);

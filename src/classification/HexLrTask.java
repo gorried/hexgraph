@@ -4,7 +4,9 @@ import hexgraph.HEXGraphFactory;
 import hexgraph.HEXGraphMethods;
 import hexgraph.JunctionTree;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.BitSet;
@@ -19,6 +21,7 @@ public class HexLrTask {
 	private HEXGraphMethods mHexGraphMethods;
 	private LogRegClassifier[] mClassifiers;
 	private String[] mClassNames;
+	private int mNumFeatures;
 	
 	public static final int CLASSIFICATION_TRUE = 1;
 	public static final int CLASSIFICATION_FALSE = 0;
@@ -26,22 +29,63 @@ public class HexLrTask {
 	private final double ETA = 0.3;
 	private final double LAMBDA = 0.3;
 	
-	public HexLrTask(File graphFile, int numClassifiers, String[] cnames, int numFeatures) throws IOException {
+	public HexLrTask(File graphFile, String[] cnames, int numFeatures) throws IOException {
 		HEXGraphFactory factory = new HEXGraphFactory();
 		factory.buildHEXGraph(graphFile.getPath());
 		mHexGraphMethods = new HEXGraphMethods(factory, graphFile.getPath());
-		mJunctionTree = mHexGraphMethods.buildJunctionTree();
-		mClassNames = cnames;
 		
-		mClassifiers = new LogRegClassifier[numClassifiers];
+		long startTime = System.currentTimeMillis();
+		mJunctionTree = mHexGraphMethods.buildJunctionTree();
+		long endTime = System.currentTimeMillis();
+		System.out.println(String.format("Building junction tree took %d ms", endTime - startTime));
+		
+		mClassNames = cnames;
+		mNumFeatures = numFeatures;
+		
+		mClassifiers = new LogRegClassifier[cnames.length];
 		// for each classifier, initialize the classifier to the correct number of weights
 		for (int i = 0; i < mClassifiers.length; i++) {
-			mClassifiers[i] = new LogRegClassifier(numFeatures, ETA, LAMBDA);
+			mClassifiers[i] = new LogRegClassifier(mNumFeatures, ETA, LAMBDA);
 		}
 	}
 	
-	public HexLrTask(File graphFile, File modelFile) {
+	/**
+	 * Used to reconstruct a task from a model file
+	 * @param graphFile String filepath of the graph file
+	 * @param modelFile String filepath of the model file
+	 * @throws IOException
+	 */
+	public HexLrTask(String graphFile, String modelFile) throws IOException {
+		HEXGraphFactory factory = new HEXGraphFactory();
+		factory.buildHEXGraph(graphFile);
+		mHexGraphMethods = new HEXGraphMethods(factory, graphFile);
+		mJunctionTree = mHexGraphMethods.buildJunctionTree();
 		
+		BufferedReader br = null;
+		try {
+			br = new BufferedReader(new FileReader(modelFile));
+			int numClasses = Integer.parseInt(br.readLine().trim());
+			mNumFeatures = Integer.parseInt(br.readLine().trim());
+			mClassifiers = new LogRegClassifier[numClasses]; 
+			mClassNames = new String[numClasses];
+			
+			for (int i = 0; i < numClasses; i++) {
+				mClassNames[i] = br.readLine();
+				SparseVector weights = new SparseVector(mNumFeatures);
+				for (String entry : br.readLine().trim().split(" ")) {
+					String[] splitEntry = entry.split(":");
+					weights.put(Integer.parseInt(splitEntry[0]), Double.parseDouble(splitEntry[1]));
+				}
+				mClassifiers[i] = new LogRegClassifier(weights, ETA, LAMBDA);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				br.close();
+			}
+		}
 	}
 	
 	public void train(SparseVector[] x_train, BitSet[] y_train, int numIterations) {
@@ -51,8 +95,9 @@ public class HexLrTask {
 			return;
 		}
 		
-		for (int _ = 0; _ < numIterations; _++) {
+		for (int j = 0; j < numIterations; j++) {
 			for (int i = 0; i < x_train.length; i++) {
+				System.out.println("Loop " + j + " instance " + i);
 				double[] scores = new double[mClassifiers.length];
 				double[] labels = new double[mClassifiers.length];
 				
@@ -84,19 +129,20 @@ public class HexLrTask {
 		}
 		File outFile = new File(directory + filename);
 		PrintWriter writer = new PrintWriter(outFile.getPath(), "UTF-8");
+		writer.print(mClassNames.length);
 		
 		for (int i = 0; i < mClassNames.length; i++) {
 			writer.println(mClassNames[i]);
-			writer.print(mClassifiers[i].getBias() + ",");
 			SparseVector weights = mClassifiers[i].getWeights();
-			for (int j = 0; j < weights.size(); j++) {
-				writer.print(weights.get(i) + ",");
+			for (int idx : weights.nzindices()) {
+				writer.print(String.format("%d:%f ", idx, weights.get(idx)));
 			}
 			writer.println();
 		}
 		writer.close();
 		
 	}
+	
 	
 	/**
 	 * For all the following below, int[] res consists of:

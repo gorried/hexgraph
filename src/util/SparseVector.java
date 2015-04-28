@@ -45,7 +45,7 @@ public class SparseVector {
     // return the dot product of this vector a with b
     public double dot(SparseVector b) {
         SparseVector a = this;
-        if (a.N != b.N) throw new RuntimeException("Vector lengths disagree");
+        if (a.N != b.N) throw new RuntimeException("Vector lengths disagree: " + a.N + " " + b.N);
         double sum = 0.0;
 
         // iterate over the vector with the fewest nonzeros
