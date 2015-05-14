@@ -1,12 +1,11 @@
 package hexgraph;
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+
+import util.NameSpace;
 
 /**
  * @author dgorrie
@@ -29,21 +28,24 @@ public class HEXGraphFactory {
 	private Map<String, HEXGraph<String>> mSparseGraphs;
 	private Map<String, HEXGraph<String>> mDenseGraphs;
 	
+	private NameSpace<String> mNameSpace;
 	
 	
-	public HEXGraphFactory() {
+	
+	public HEXGraphFactory(NameSpace<String> nameSpace) {
 		mLiteralGraphs = new HashMap<String, HEXGraph<String>>();
 		mSparseGraphs = new HashMap<String, HEXGraph<String>>();
 		mDenseGraphs = new HashMap<String, HEXGraph<String>>();
+		mNameSpace = nameSpace;
 	}
 	
-	public HEXGraphFactory(String filepath) throws IOException {
-		this();
+	public HEXGraphFactory(String filepath, NameSpace<String> nameSpace) throws IOException {
+		this(nameSpace);
 		buildHEXGraph(filepath);
 	}
 	
 	public HEXGraph<String> getEmptyHEXGraph() {
-		return new HEXGraph<String>();
+		return new HEXGraph<String>(mNameSpace);
 	}
 	
 	public HEXGraph<String> getSparseGraph(String key) {
@@ -79,9 +81,9 @@ public class HEXGraphFactory {
 	}
 	
 	public void buildHEXGraph(String filepath) throws IOException {
-		HEXGraph<String> literalGraph = new HEXGraph<String>();
-		HEXGraph<String> sparseGraph = new HEXGraph<String>();
-		HEXGraph<String> denseGraph = new HEXGraph<String>();
+		HEXGraph<String> literalGraph = new HEXGraph<String>(mNameSpace);
+		HEXGraph<String> sparseGraph = new HEXGraph<String>(mNameSpace);
+		HEXGraph<String> denseGraph = new HEXGraph<String>(mNameSpace);
 		mBufferedReader = new BufferedReader(new FileReader(filepath));
 		String line = "";
 		try {
@@ -172,17 +174,6 @@ public class HEXGraphFactory {
 			mLiteralGraphs.put(filepath, literalGraph);
 			mSparseGraphs.put(filepath, sparseGraph);
 			mDenseGraphs.put(filepath, denseGraph);
-			
-			// Print out all pairs of excludsions
-//			File outputFile = new File("src/output_files/temp_out.txt");
-//			PrintWriter writer = new PrintWriter(outputFile.getPath(), "UTF-8");
-//			List<String> nodeList = sparseGraph.getNodeList();
-//			for (int i = 0; i < nodeList.size(); i++) {
-//				for (int j = i+1; j < nodeList.size(); j++) {
-//					writer.println(nodeList.get(i) + " " + nodeList.get(j));
-//				}
-//			}
-//			writer.close();
 			
 		} catch (Exception e) {
 			System.err.println(e.getMessage());

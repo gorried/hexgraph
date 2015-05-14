@@ -1,9 +1,13 @@
 package hexgraph;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+
+import util.NameSpace;
+import util.TriState;
 
 /**
  * @author dgorrie
@@ -19,16 +23,20 @@ public class JunctionTree<V> {
 	private Set<JunctionTreeNode<V>> nodes;
 	private Set<JunctionTreeEdge<V>> edges;
 	
+	private final NameSpace<V> mNameSpace;
+	private final int mNumClasses;
 	
-	public JunctionTree() {
+	public JunctionTree(NameSpace<V> nameSpace, int numClasses) {
 		nodes = new HashSet<JunctionTreeNode<V>>();
 		edges = new HashSet<JunctionTreeEdge<V>>();
+		mNameSpace = nameSpace;
+		mNumClasses = numClasses;
 	}
 	
 	private boolean nodeConsumes(JunctionTreeNode<V> node, Set<V> members) {
+		BitSet nodeMembers = node.getMembers();
 		for (V member : members) {
-			Set<V> nodeMembers = node.getMembers();
-			if (!nodeMembers.contains(member)) {
+			if (!nodeMembers.get(mNameSpace.getIndex(member))) {
 				return false;
 			}
 		}
@@ -39,7 +47,7 @@ public class JunctionTree<V> {
 		for (JunctionTreeNode<V> node : nodes) {
 			if (nodeConsumes(node, members)) return;
 		}
-		nodes.add(new JunctionTreeNode<V>(members));
+		nodes.add(new JunctionTreeNode<V>(members, mNumClasses, mNameSpace));
 		System.out.println("added node " + members.size() + " " + members.toString());
 	}
 	
@@ -141,9 +149,9 @@ public class JunctionTree<V> {
 		}
 	}
 	
-	public Map<Configuration<V>, Double> exactInference(Set<Configuration<V>> graphStateSpace,
-			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
-			Map<V, Double> scoreMap) {
+	public Map<Configuration, Double> exactInference(Set<Configuration> graphStateSpace,
+			Map<JunctionTreeNode<V>, Set<Configuration>> stateSpaces,
+			double[] scores) {
 		JunctionTreeNode<V> root = getFirst();
 		// base case
 		if (root.getNeighbors().size() == 0) {
@@ -151,12 +159,12 @@ public class JunctionTree<V> {
 			System.out.println("Root has cardinality zero....");
 			printTreeStats();
 		}
-		root.collectMessages(null, stateSpaces, scoreMap);
+		root.collectMessages(null, stateSpaces, scores);
 		root.propagateMessages(null, null);
 		
 		// All the nodes and edges are stored in a field
-		Map<Configuration<V>, Double> configScores = new HashMap<Configuration<V>, Double>();
-		for (Configuration<V> config : graphStateSpace) {
+		Map<Configuration, Double> configScores = new HashMap<Configuration, Double>();
+		for (Configuration config : graphStateSpace) {
 			double numerator = 1.0;
 			double denominator = 1.0;
 //			System.out.println(config.toString());
@@ -176,11 +184,11 @@ public class JunctionTree<V> {
 //			System.out.println("-----");
 			// tune for the repeated factors. We know a factor is a "super" factor if it
 			// appears in an edge.
-			for (V element : config.getKeySet()) {
-				if (config.get(element) == 1) {
+			for (int i = 0; i < config.size(); i++) {
+				if (config.get(i) == TriState.TRUE) {
 					for (JunctionTreeEdge<V> edge : edges) {
-						if (edge.phiStar.getVariables().contains(element)) {
-							denominator *= Math.pow(Math.E, scoreMap.get(element));
+						if (edge.phiStar.getVariables().get(i)) {
+							denominator *= Math.pow(Math.E, scores[i]);
 						}
 					}
 				}
@@ -192,9 +200,9 @@ public class JunctionTree<V> {
 	}
 	
 	
-	public Map<V, Double> exactMarginalInference(Set<V> nodeSet,
-			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
-			Map<V, Double> scoreMap) {
+	public Map<V, Double> exactMarginalInference(int numClasses,
+			Map<JunctionTreeNode<V>, Set<Configuration>> stateSpaces,
+			double[] scores) {
 		JunctionTreeNode<V> root = getFirst();
 		// base case
 		if (root.getNeighbors().size() == 0) {
@@ -202,62 +210,61 @@ public class JunctionTree<V> {
 			System.out.println("Root has cardinality zero....");
 		}
 		long startTime = System.currentTimeMillis();
-		root.collectMessages(null, stateSpaces, scoreMap);
+		root.collectMessages(null, stateSpaces, scores);
 		long endTime = System.currentTimeMillis();
-		System.out.println(String.format("Collecting messages took %d ms", endTime - startTime));
+		// System.out.println(String.format("Collecting messages took %d ms", endTime - startTime));
 		
 		startTime = System.currentTimeMillis();
 		root.propagateMessages(null, null);
 		endTime = System.currentTimeMillis();
-		System.out.println(String.format("Propagating messages took %d ms", endTime - startTime));
+		// System.out.println(String.format("Propagating messages took %d ms", endTime - startTime));
 		
 		startTime = System.currentTimeMillis();
 		// All the nodes and edges are stored in a field
 		Map<V, Double> configScores = new HashMap<V, Double>();
-		for (V element : nodeSet) {
-			double pNode1 = 1.0;
-			double pNode0 = 1.0;
-			double pSeparator0 = 1.0;
-			double pSeparator1 = 1.0;
-			for (JunctionTreeEdge<V> edge : edges) {
-				if (edge.phiStar.getVariables().contains(element)) {
-					Set<V> elemSet = new HashSet<V>();
-					elemSet.add(element);
-					Factor<V> summedOut = edge.phiStar.getSubDistribution(elemSet);
-					Configuration<V> query = new Configuration<V>(elemSet);
-					
-					query.setValues(element, Configuration.CONFIG_TRUE);
-					// System.out.println(query.toString());
-					pSeparator1 *= summedOut.getScoreIfSubsumed(query);
-					
-					query.setValues(element, Configuration.CONFIG_FALSE);
-					// System.out.println(query.toString());
-					pSeparator0 *= summedOut.getScoreIfSubsumed(query);
+		double[] pNode1 = new double[numClasses];
+		double[] pNode0 = new double[numClasses];
+		double[] pSeparator1 = new double[numClasses];
+		double[] pSeparator0 = new double[numClasses];
+		for (JunctionTreeEdge<V> edge : edges) {
+			Map<Configuration, Double> dist = edge.getPhiStar().getDist();
+			for (Configuration c : dist.keySet()) {
+				double val = dist.get(c);
+				for (int i = 0; i < numClasses; i++) {
+					if (c.contains(i)) {
+						if (c.get(i) == TriState.TRUE) {
+							pSeparator1[i] += val;
+						} else {
+							pSeparator0[i] += val;
+						}
+					}
 				}
 			}
-			for (JunctionTreeNode<V> node : nodes) {
-				if (node.getMembers().contains(element)) {
-					Set<V> elemSet = new HashSet<V>();
-					elemSet.add(element);
-					Factor<V> summedOut = node.getFactor().getSubDistribution(elemSet);
-					// summedOut.print("Summed out");
-					Configuration<V> query = new Configuration<V>(elemSet);
-					
-					query.setValues(element, Configuration.CONFIG_TRUE);
-					pNode1 *= summedOut.getScoreIfSubsumed(query);
-					
-					query.setValues(element, Configuration.CONFIG_FALSE);
-					pNode0 *= summedOut.getScoreIfSubsumed(query);
+		}
+		for (JunctionTreeNode<V> node : nodes) {
+			Map<Configuration, Double> dist = node.getFactor().getDist();
+			for (Configuration c : dist.keySet()) {
+				double val = dist.get(c);
+				for (int i = 0; i < numClasses; i++) {
+					if (c.contains(i)) {
+						if (c.get(i) == TriState.TRUE) {
+							pNode1[i] += val;
+						} else {
+							pNode0[i] += val;
+						}
+					}
 				}
 			}
-			// System.out.println(String.format("%.6f %.6f || %.6f %.6f", pNode1, pSeparator1, pNode0, pSeparator0));
-			double m1 = pNode1 / pSeparator1;
-			double m0 = pNode0 / pSeparator0;
-			// System.out.println(m1 + " " + m0);
-			configScores.put(element, m1 / (m0 + m1));
+		}
+		for (int i = 0; i < numClasses; i++) {			
+			// System.out.println(String.format("%.6f %.6f || %.6f %.6f", pNode1[i], pSeparator1[i], pNode0[i], pSeparator0[i]));
+			double m1 = pNode1[i] / (pSeparator1[i] == 0.0 ? 1.0 : pSeparator1[i]);
+			double m0 = pNode0[i] / (pSeparator0[i] == 0.0 ? 1.0 : pSeparator0[i]);
+			// System.out.println(Math.exp(m1 / (m0 + m1)));
+			configScores.put(mNameSpace.get(i), Math.exp(m1 / (m0 + m1)));
 		}
 		endTime = System.currentTimeMillis();
-		System.out.println(String.format("Merging results took %d ms", endTime - startTime));
+		// System.out.println(String.format("Merging results took %d ms", endTime - startTime));
 		return configScores;
 	}
 	
@@ -280,174 +287,32 @@ public class JunctionTree<V> {
 	
 }
 
-
-class JunctionTreeNode<V> {
-	private Set<V> members;
-	private Set<JunctionTreeEdge<V>> edges;
-	private Factor<V> factor;
-	
-	public JunctionTreeNode(Set<V> mems) {
-		edges = new HashSet<JunctionTreeEdge<V>>();
-		// make a deep copy of mems
-		members = new HashSet<V>();
-		for (V v : mems) {
-			members.add(v);
-		}
-		factor = new Factor<V>();
-	}
-	
-	public void addEdge(JunctionTreeEdge<V> edge) {
-		edges.add(edge);
-	}
-	
-	public Set<JunctionTreeEdge<V>> getEdges() {
-		return edges;
-	}
-	
-	public void removeEdge(JunctionTreeNode<V> other) {
-		Iterator<JunctionTreeEdge<V>> it = edges.iterator();
-		while (it.hasNext()) {
-			if (it.next().getOther(this).equals(other)) {
-				it.remove();
-			}
-		}
-	}
-	
-	public Factor<V> getFactor() {
-		return factor.getDeepCopy();
-	}
-	
-	public Set<V> getMembers() {
-		return members;
-	}
-	
-	public Set<V> getOverlappingSet(JunctionTreeNode<V> other) {
-		Set<V> overlapping = new HashSet<V>();
-		for (V member : members) {
-			if (other.members.contains(member)) {
-				overlapping.add(member);
-			}
-		}
-		return overlapping;
-	}
-	
-	public int getOverlap(JunctionTreeNode<V> other) {
-		int count = 0;
-		for (V member : members) {
-			if (other.members.contains(member)) {
-				count++;
-			}
-		}
-		return count;
-	}
-	
-	public Set<JunctionTreeNode<V>> getNeighbors() {
-		Set<JunctionTreeNode<V>> neighbors = new HashSet<JunctionTreeNode<V>>();
-		for (JunctionTreeEdge<V> edge : edges) {
-			neighbors.add(edge.getOther(this));
-		}
-		return neighbors;
-	}
-	
-	/**
-	 * We collect messages from the leaves and bring them to the root
-	 * @param parent
-	 * @param stateSpaces
-	 * @param scoreMap
-	 * @return
-	 */
-	Factor<V> collectMessages(JunctionTreeNode<V> parent,
-			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
-			Map<V, Double> scoreMap) {
-//		System.out.println("THIS NODE " + getMembers());
-//		System.out.println("PARENT " + parent);
-		// base case: this node doesnt have any neighbors that arent parent (leaf)
-		if (edges.size() == 1 && parent != null) {
-			// we know that the only neighbor is parent
-			factor = new Factor<V>(stateSpaces.get(this), scoreMap);
-			// factor.print("leaf", getMembers());
-			return factor.getDeepCopy();
-		} else {
-			factor = new Factor<V>(stateSpaces.get(this), scoreMap);
-			
-			Set<Factor<V>> separators = new HashSet<Factor<V>>();
-			for (JunctionTreeEdge<V> outEdge : getEdges()) {
-				if (!outEdge.contains(parent)) {
-					separators.add(outEdge.collectMessages(this, stateSpaces, scoreMap));
-				}
-			}
-			
-			// Calculate scores and put them into a new factor
-			for (Factor<V> separator : separators) {
-				// separator.print("separator");
-				factor.combineDistributionProduct(separator);
-			}
-			return factor.getDeepCopy();
-		}	
-	}
-	
-	/**
-	 * Once the messages have been collected at the root, we propagate them outwards to the leaves
-	 */
-	void propagateMessages(JunctionTreeEdge<V> parent, Factor<V> properFactor) {
-		if (parent == null) {
-			// factor.print("Root");
-		} else {
-			factor.combineDistributionProduct(properFactor);
-			// factor.print("Factor after product", getMembers());
-		}
-		for (JunctionTreeEdge<V> edge : getEdges()) {
-			if (!edge.equals(parent)) {
-				edge.propagateMessages(this);
-			}
-		}	
-	}
-	
-	public String toString() {
-		return members.toString();
-	}
-
-	@SuppressWarnings("unchecked")
-	@Override
-	public boolean equals(Object o) {
-		if (o instanceof JunctionTreeNode && ((JunctionTreeNode<V>) o).members.equals(this.members)) {
-			return true;
-		}
-		return false;
-	}
-	
-	@Override
-	public int hashCode() {
-		return members.hashCode();
-	}
-}
-
 class JunctionTreeEdge<V> {
 	JunctionTreeNode<V> first;
 	JunctionTreeNode<V> second;
 	int weight;
-	Factor<V> phiStar;
-	Factor<V> phiStarStar;
-	Factor<V> divided;
+	Factor phiStar;
+	Factor phiStarStar;
+	Factor divided;
 	
 	public JunctionTreeEdge(JunctionTreeNode<V> f, JunctionTreeNode<V> s) {
 		first = f;
 		second = s;
 		weight = f.getOverlap(s);
-		phiStar = new Factor<V>();
-		phiStarStar = new Factor<V>();
-		divided = new Factor<V>();
+		phiStar = new Factor();
+		phiStarStar = new Factor();
+		divided = new Factor();
 	}
 	
-	public Factor<V> getPhiStar() {
+	public Factor getPhiStar() {
 		return phiStar.getDeepCopy();
 	}
 	
-	public Factor<V> getPhiStarStar() {
+	public Factor getPhiStarStar() {
 		return phiStarStar.getDeepCopy();
 	}
 	
-	public Factor<V> getDivided() {
+	public Factor getDivided() {
 		return divided.getDeepCopy();
 	}
 	
@@ -460,16 +325,16 @@ class JunctionTreeEdge<V> {
 	 * @param scoreMap
 	 * @return
 	 */
-	public Factor<V> collectMessages(JunctionTreeNode<V> caller, 
-			Map<JunctionTreeNode<V>, Set<Configuration<V>>> stateSpaces,
-			Map<V, Double> scoreMap) {
+	public Factor collectMessages(JunctionTreeNode<V> caller, 
+			Map<JunctionTreeNode<V>, Set<Configuration>> stateSpaces,
+			double[] scores) {
 		if (!caller.equals(first) && !caller.equals(second)) {
 			throw new IllegalStateException("Illegal caller to edge in collect messages");
 		}
-		Factor<V> result = getOther(caller).collectMessages(caller, stateSpaces, scoreMap);
-		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
+		Factor result = getOther(caller).collectMessages(caller, stateSpaces, scores);
+		BitSet overlapping = caller.getOverlappingSet(getOther(caller));
 		phiStar = result.getSubDistribution(overlapping);
-		return phiStar.getDeepCopy();
+		return getPhiStar();
 	}
 	
 	/**
@@ -479,11 +344,10 @@ class JunctionTreeEdge<V> {
 		if (!caller.equals(first) && !caller.equals(second)) {
 			throw new IllegalStateException("Illegal caller to edge in propagate messages");
 		}
-		Set<V> overlapping = caller.getOverlappingSet(getOther(caller));
+		BitSet overlapping = caller.getOverlappingSet(getOther(caller));
 		phiStarStar = caller.getFactor().getSubDistribution(overlapping);
-		divided = phiStarStar.divide(phiStar);
-		// phiStarStar.print("phiStarStar");
-		// divided.print("DIVIDED");
+		divided = phiStarStar.divide(getPhiStar());
+		
 		getOther(caller).propagateMessages(this, phiStarStar);
 	}
 	

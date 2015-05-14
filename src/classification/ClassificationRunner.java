@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
+import util.NameSpace;
 import util.SparseVector;
 
 
@@ -30,17 +31,18 @@ public class ClassificationRunner {
 	private static final String TRAINING_DATA = DATA_FILE_FOLDER + "train_small.features";
 	private static final String TRAINING_LABEL_FILE_DIR = "src/data_files/labels/";
 	private static final String GRAPH_FILE = "src/graph_files/figer/figer_new.hxg";
-	private static final String CLASS_NAME_MAP_FILE = DATA_FILE_FOLDER + "type.list";
+	private static final String NAME_SPACE_FILE = "src/data_files/namespace/type.list";
 	
 	private static final double TEST_SET_SIZE = 0.1;
 	
 	// We will just say there are 100 million features. it really doesnt matter because 
 	// we only iterate over the nonzero instances anyhow.
 	private static final int NUM_FEATURES = 10391078;
-	
-	private static final boolean TEST_MODE = true;
+		
+	private static NameSpace<String> mNameSpace;
 	
 	public static void main(String[] args) throws IOException {
+		setNameSpace(NAME_SPACE_FILE);
 		// Load the training data
 		File trainingDataFile = new File(TRAINING_DATA);
 		int numInstances = countLines(trainingDataFile.getPath());
@@ -62,7 +64,7 @@ public class ClassificationRunner {
 			classNames[i] = currFileName.substring(currFileName.indexOf('.') + 1, currFileName.lastIndexOf('.'));
 		}
 		
-		Map<String, String> nameMapping = loadVerboseClassNames(CLASS_NAME_MAP_FILE);
+		Map<String, String> nameMapping = loadVerboseClassNames(NAME_SPACE_FILE);
 		for (int i = 0; i < numClassifiers; i++) {
 			classNames[i] = nameMapping.get(classNames[i]);
 		}
@@ -77,7 +79,7 @@ public class ClassificationRunner {
 		shuffleArray(x);
 		System.out.println("Loading training labels");
 		BitSet[] y = loadClasses(labelFiles, numInstances, numClassifiers);
-		HexLrTask task = new HexLrTask(graphFile, classNames, NUM_FEATURES);
+		HexLrTask task = new HexLrTask(graphFile, classNames, NUM_FEATURES, mNameSpace);
 		
 		int testingCutoff = (int)Math.floor(x.length * (1 - TEST_SET_SIZE));
 		
@@ -93,17 +95,18 @@ public class ClassificationRunner {
 	
 	private static BitSet[] loadClasses(File[] labelFiles, int numInstances, int numClassifiers) throws IOException {
 		BufferedReader br = null;
-		BitSet[] data = new BitSet[numClassifiers];
-		for (int i = 0; i < numClassifiers; i++) {
-			data[i] = new BitSet(numInstances);
-			
+		BitSet[] data = new BitSet[numInstances];
+		for (int i = 0; i < numInstances; i++) {
+			data[i] = new BitSet(numClassifiers);
+		}
+		for (int c = 0; c < numClassifiers; c++) {
 			try {				
-				br = new BufferedReader(new FileReader(labelFiles[i].getPath()));
+				br = new BufferedReader(new FileReader(labelFiles[c].getPath()));
 				int lineCount = 0;
 				String line = "";
 				while ((line = br.readLine()) != null && lineCount < numInstances) {
 					if (Integer.parseInt(line) == 1) {
-						data[i].set(lineCount);
+						data[lineCount].set(c);
 					}
 					lineCount++;
 				}
@@ -205,5 +208,26 @@ public class ClassificationRunner {
 	    } finally {
 	        is.close();
 	    }
+	}
+	
+	private static void setNameSpace(String filepath) throws IOException{
+		String[] names = new String[countLines(filepath)];
+		BufferedReader br = null;
+		try {
+			br = new BufferedReader(new FileReader(filepath));
+			String line = "";
+			while ((line = br.readLine()) != null) {
+				line.trim();
+				String[] splitLine = line.split("\\s+");
+				names[Integer.parseInt(splitLine[0])] = splitLine[1];
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				br.close();
+			}
+		}
+		mNameSpace = new NameSpace<String>(names);
 	}
 }

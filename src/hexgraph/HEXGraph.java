@@ -2,6 +2,7 @@ package hexgraph;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,10 +12,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import util.NameSpace;
 
 
-// TODO: check all the methods that return collections to make sure they are returning COPIES
-// of that collection
 
 /**
  * @author Daniel Gorrie
@@ -35,16 +35,17 @@ import java.util.Set;
  * 
  * For the purposes of documentation, nodes and classes are the same thing.
  */
-public class HEXGraph<V> implements Serializable {
+public class HEXGraph<V> {
 	
-	private static final long serialVersionUID = 5978536665927538070L;
 	private Map<V, GraphNode<V>> nodes;
+	private NameSpace<V> mNameSpace;
 	
 	/**
 	 * Default constructor. Constructs an empty HEXGraph
 	 */
-	public HEXGraph() {
+	public HEXGraph(NameSpace<V> nameSpace) {
 		nodes = new HashMap<V, GraphNode<V>>();
+		mNameSpace = nameSpace;
 	}
 	
 	/**
@@ -52,7 +53,7 @@ public class HEXGraph<V> implements Serializable {
 	 * @return a deep copy of the graph
 	 */
 	public HEXGraph<V> getDeepCopy() {
-		HEXGraph<V> copy = new HEXGraph<V>();
+		HEXGraph<V> copy = new HEXGraph<V>(mNameSpace);
 		Map<GraphNode<V>, GraphNode<V>> nodeMap = new HashMap<GraphNode<V>, GraphNode<V>>();
 		// Initialize the new nodes, and keep a mapping from the old nodes to the new nodes
 		for (V label : nodes.keySet()) {
@@ -92,11 +93,25 @@ public class HEXGraph<V> implements Serializable {
 	 */
 	public HEXGraph<V> getSubgraph(Set<V> nodeSubset) {
 		if (nodeSubset.isEmpty()) {
-			return new HEXGraph<V>();
+			return new HEXGraph<V>(mNameSpace);
 		} else {			
 			HEXGraph<V> subgraph = getDeepCopy();
 			for (V node : subgraph.getNodeList()) {
 				if (!nodeSubset.contains(node)) {
+					subgraph.deleteNode(node);
+				}
+			}
+			return subgraph;
+		}
+	}
+	
+	public HEXGraph<V> getSubgraph(BitSet nodeSubset) {
+		if (nodeSubset.isEmpty()) {
+			return new HEXGraph<V>(mNameSpace);
+		} else {
+			HEXGraph<V> subgraph = getDeepCopy();
+			for (V node : subgraph.getNodeList()) {
+				if (!nodeSubset.get(mNameSpace.getIndex(node))) {
 					subgraph.deleteNode(node);
 				}
 			}
@@ -542,14 +557,18 @@ public class HEXGraph<V> implements Serializable {
 	}
 	
 	/**
-	 * @return a map of all node to score combinations
+	 * Returns a double[] containing scores for this graph
+	 * 
+	 * TODO make the score integration more efficient
+	 * 
+	 * @return a double[] containing scores for this graph
 	 */
-	public Map<V, Double> getScoreMap() {
-		Map<V, Double> scoreMap = new HashMap<V, Double>();
-		for (V node : nodes.keySet()) {
-			scoreMap.put(node, getScore(node));
+	public double[] getScores() {
+		double[] scores = new double[size()];
+		for (int i = 0; i < size(); i++) {
+			scores[i] = getScore(mNameSpace.get(i));
 		}
-		return scoreMap;
+		return scores;
 	}
 	
 	/**
@@ -561,6 +580,18 @@ public class HEXGraph<V> implements Serializable {
 			if (nodes.containsKey(node)) {
 				nodes.get(node).setScore(scores.get(node));
 			}
+		}
+	}
+	
+	/**
+	 * Sets scores for all the nodes in the graph at once. If scores contains more entries than
+	 * there are nodes in the graph we ignore the extra entries.
+	 * 
+	 * @param scores - the double[] of scores we are assigning to the graph
+	 */
+	public void setScores(double[] scores) {
+		for (int i = 0; i < scores.length; i++) {
+			nodes.get(mNameSpace.get(i)).setScore(scores[i]);
 		}
 	}
 	

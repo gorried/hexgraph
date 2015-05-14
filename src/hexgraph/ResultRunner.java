@@ -1,30 +1,41 @@
 package hexgraph;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
-import java.util.List;
+import java.util.BitSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 
+import util.NameSpace;
+
 
 public class ResultRunner {
-	public static String rawDirectory = "src/score_files/figer-hex/raw";
-	public static String scoreDirectory = "src/score_files/figer-hex/scores";
-	public static String outputDirectory = "src/output_files";
-	public static String graphDirectory = "src/graph_files/figer";
-	public static boolean MARGINAL = true;
+	private static String mRawDirectory = "src/score_files/figer-hex/raw";
+	private static String mScoreDirectory = "src/score_files/figer-hex/scores";
+	private static String mOutputDirectory = "src/output_files";
+	private static String mGraphDirectory = "src/graph_files/figer";
+	private static String mNameSpaceFile = "src/data_files/namespace/type.list";
+	private static boolean MARGINAL = true;
+	
+	private static NameSpace<String> mNameSpace;
 	
 	public static void main(String[] args) throws IOException, IllegalStateException {
-		HEXGraphFactory factory = new HEXGraphFactory();
+		setNameSpace(mNameSpaceFile);
+		HEXGraphFactory factory = new HEXGraphFactory(mNameSpace);
 		
 		// Check if the output directory exists, and if not, make it
-		File outputDir = new File(outputDirectory);
+		File outputDir = new File(mOutputDirectory);
 		if (!outputDir.exists()) {
 			outputDir.mkdirs();
 		}
 		
-		File graphDir = new File(graphDirectory);
+		File graphDir = new File(mGraphDirectory);
 		File[] graphDirectoryListing = graphDir.listFiles();
 		if (graphDirectoryListing != null) {
 			for (File graphFile : graphDirectoryListing) {
@@ -36,14 +47,14 @@ public class ResultRunner {
 				}
 				
 				factory.buildHEXGraph(filepath);
-				HEXGraphMethods methods = new HEXGraphMethods(factory, filepath);
+				HEXGraphMethods methods = new HEXGraphMethods(factory, filepath, mNameSpace);
 				System.out.println("Built graph from" + filepath);
 				
 				JunctionTree<String> tree = methods.buildJunctionTree();
 				System.out.println("Done building tree");
 				
 				// iterate through the score directory and 
-				File scoreDir = new File(scoreDirectory);
+				File scoreDir = new File(mScoreDirectory);
 				File[] scoreDirectoryListing = scoreDir.listFiles();
 				if (scoreDirectoryListing != null) {
 					for (File scoreFile : scoreDirectoryListing) {
@@ -58,23 +69,44 @@ public class ResultRunner {
 						}
 					}
 				} else {
-					throw new IOException(scoreDirectory + " is not a directory");
+					throw new IOException(mScoreDirectory + " is not a directory");
 				}
 			}
 		} else {
-			throw new IOException(graphDirectory + " is not a directory");
+			throw new IOException(mGraphDirectory + " is not a directory");
 		}
 		
 	}
 	
-	public static void runMarginalInference(HEXGraphMethods methods, File scoreFile, 
+	private static void setNameSpace(String filepath) throws IOException{
+		String[] names = new String[countLines(filepath)];
+		BufferedReader br = null;
+		try {
+			br = new BufferedReader(new FileReader(filepath));
+			String line = "";
+			while ((line = br.readLine()) != null) {
+				line.trim();
+				String[] splitLine = line.split("\\s+");
+				names[Integer.parseInt(splitLine[0])] = splitLine[1];
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				br.close();
+			}
+		}
+		mNameSpace = new NameSpace<String>(names);
+	}
+	
+	private static void runMarginalInference(HEXGraphMethods methods, File scoreFile, 
 			File outputSubDir, JunctionTree<String> tree) throws IOException, IllegalStateException {
 		Map<String, Double> resultMap = methods.exactMarginalInference(tree);
 		
-		File outputFile = new File(outputSubDir.getPath() + "/marginal_" + scoreFile.getName());
+		File outputFile = new File(outputSubDir.getPath() + "/new_marginal_" + scoreFile.getName());
 		PrintWriter writer = new PrintWriter(outputFile.getPath(), "UTF-8");
 		
-		Scanner sc = new Scanner(new File(rawDirectory + "/" + scoreFile.getName()));
+		Scanner sc = new Scanner(new File(mRawDirectory + "/" + scoreFile.getName()));
 		try {
 			writer.println(sc.useDelimiter("\\Z").next() + "\n");
 		} catch (NoSuchElementException e) {
@@ -89,14 +121,14 @@ public class ResultRunner {
 		writer.close();
 	}
 	
-	public static void runJointInference(HEXGraphMethods methods, File scoreFile, 
+	private static void runJointInference(HEXGraphMethods methods, File scoreFile, 
 			File outputSubDir, JunctionTree<String> tree) throws IOException, IllegalStateException {
-		Map<Configuration<String>, Double> scoreMap = methods.exactInference(tree);
+		Map<Configuration, Double> scoreMap = methods.exactInference(tree);
 		
-		File outputFile = new File(outputSubDir.getPath() + "/joint_" + scoreFile.getName());
+		File outputFile = new File(outputSubDir.getPath() + "/new_joint_" + scoreFile.getName());
 		PrintWriter writer = new PrintWriter(outputFile.getPath(), "UTF-8");
 		
-		Scanner sc = new Scanner(new File(rawDirectory + "/" + scoreFile.getName()));
+		Scanner sc = new Scanner(new File(mRawDirectory + "/" + scoreFile.getName()));
 		try {
 			writer.println(sc.useDelimiter("\\Z").next() + "\n");
 		} catch (NoSuchElementException e) {
@@ -105,12 +137,13 @@ public class ResultRunner {
 			sc.close();
 		}
 		
-		for (Configuration<String> key : scoreMap.keySet()) {
+		for (Configuration key : scoreMap.keySet()) {
 			boolean zeroFlag = true;
-			for (String s : key.getKeySet()) {
-				if (key.get(s) == Configuration.CONFIG_TRUE) {
+			BitSet setting = key.getBitwiseConfig();
+			for (int i = 0; i < setting.length(); i++) {
+				if (setting.get(i)) {
 					zeroFlag = false;
-					writer.println(String.format("%s: 1", s));
+					writer.println(String.format("%s: 1", mNameSpace.get(i)));
 				}
 			}
 			if (zeroFlag) {
@@ -124,5 +157,29 @@ public class ResultRunner {
 			
 		}
 		writer.close();
+	}
+	
+	/**
+	 * Counts and returns the number of lines in a given file
+	 */
+	private static int countLines(String filename) throws IOException {
+	    InputStream is = new BufferedInputStream(new FileInputStream(filename));
+	    try {
+	        byte[] c = new byte[1024];
+	        int count = 0;
+	        int readChars = 0;
+	        boolean empty = true;
+	        while ((readChars = is.read(c)) != -1) {
+	            empty = false;
+	            for (int i = 0; i < readChars; ++i) {
+	                if (c[i] == '\n') {
+	                    ++count;
+	                }
+	            }
+	        }
+	        return (count == 0 && !empty) ? 1 : count;
+	    } finally {
+	        is.close();
+	    }
 	}
 }

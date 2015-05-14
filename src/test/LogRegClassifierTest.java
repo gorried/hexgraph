@@ -6,12 +6,12 @@ import classification.LogRegClassifier;
 
 public class LogRegClassifierTest {
 	private static LogRegClassifier mClassifier;
-	private static final int NUM_ITER = 20;
+	private static final int NUM_ITER = 50;
 	
 	private static double[][] points = {
-		{0,1,1},
+		{0,0.1,1},
 		{0,2,1},
-		{-1,0,1},
+		{0.1,0,0},
 		{2,-1,0},
 		{-4,5,1},
 		{2,1,0},
@@ -44,7 +44,7 @@ public class LogRegClassifierTest {
 	};
 	
 	public static void main(String[] args) {
-		mClassifier = new LogRegClassifier(3, 0.3, 0.3);
+		mClassifier = new LogRegClassifier(3, 0.1, 0.3);
 		
 		for (int j = 0; j < NUM_ITER; j++) {			
 			for (int i = 0; i < points.length; i++) {
@@ -56,6 +56,8 @@ public class LogRegClassifierTest {
 				mClassifier.update(vec, mClassifier.getRecentScore(), points[i][2] == 1);
 			}
 		}
+		
+		System.out.println(mClassifier.getWeights());
 		
 		test_points = points;
 		

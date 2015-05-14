@@ -1,150 +1,198 @@
 package hexgraph;
-import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Map;
 import java.util.Set;
 
-public class Configuration<V> implements Serializable {
+import util.TriState;
+
+/**
+ * The Configuration class represents a single configuration within a probabilistic distribution.
+ * 
+ * This specific implementation relies on a global name-space to map between string class name and
+ * an integer index that we will use to specify whether that class is part of the distribution,
+ * and if so, whether it is set to true or false. 
+ *
+ */
+public class Configuration {
 	public static final int CONFIG_FALSE = 0;
 	public static final int CONFIG_TRUE = 1;
-	public final int UNSET = -1;
-		
-	private static final long serialVersionUID = -6817749231285265526L;
-	private Map<V, Integer> config;
+	public final int CONFIG_UNSET = 2;
+	
+	private TriState[] mConfig;
+	private BitSet mMemberList;
+	private BitSet mBitwiseConfig;
 
 	public Configuration() {
-		config = new HashMap<V, Integer>();
+		mConfig = new TriState[10];
+		mMemberList = new BitSet();
+		mBitwiseConfig = new BitSet();
 	}
 	
-	public Configuration(Set<V> classes) {
-		this();
-		// initialize the values to -1 so we can determine whether we have put a final
-		// configuration value for a given keys
-		for (V item : classes) {
-			config.put(item, -1);
+	public Configuration(int numClasses) {
+		mConfig = new TriState[numClasses];
+		for (int i = 0; i < mConfig.length; i++) {
+			mConfig[i] = TriState.UNSET;
+		}
+		mMemberList = new BitSet(numClasses);
+		mBitwiseConfig = new BitSet(numClasses);
+	}
+	
+	public Configuration(int numClasses, int[] set) {
+		this(numClasses);
+		setValues(set, TriState.TRUE);
+	}
+	
+	public Configuration(TriState[] config) {
+		mConfig = config;
+		mMemberList = new BitSet(config.length);
+		mBitwiseConfig = new BitSet(config.length);
+		for (int i = 0; i < config.length; i++) {
+			switch (config[i]) {
+			case TRUE:
+				mBitwiseConfig.set(i);
+			case FALSE:
+				mMemberList.set(i);
+				break;
+			default: break;
+			}
 		}
 	}
 	
-	public boolean contains(V key) {
-		return config.containsKey(key);
+	public boolean contains(int idx) {
+		return mConfig[idx] != TriState.UNSET;
 	}
 	
-	public boolean isSet(V key) {
-		return config.get(key) == CONFIG_TRUE;
+	public boolean isSet(int idx) {
+		return mConfig[idx] == TriState.TRUE;
 	}
 	
-	public boolean containsMapping(Map<V, Integer> mapping) {
-		for (V variable : mapping.keySet()) {
-			if (mapping.get(variable) != config.get(variable)) return false;
+	public TriState get(int idx) {
+		return mConfig[idx];
+	}
+	
+	public BitSet getMembers() {
+		return (BitSet) mMemberList.clone();
+	}
+	
+	public BitSet getBitwiseConfig() {
+		return (BitSet) mBitwiseConfig.clone();
+	}
+	
+	public Configuration getDeepCopy() {
+		return new Configuration(Arrays.copyOf(mConfig, mConfig.length));
+	}
+	
+	public int size() {
+		return mConfig.length;
+	}
+	
+	public void setValues(int[] indices, TriState val) {
+		for (int i : indices) {
+			setValue(i, val);
 		}
-		return true;
 	}
 	
-	
-	public int get(V key) {
-		return config.get(key);
+	public void setValues(Set<Integer> indices, TriState val) {
+		for (int i : indices) {
+			setValue(i, val);
+		}
 	}
 	
-	public Set<V> getKeySet() {
-		return config.keySet();
+	public void setValue(int idx, TriState val) {
+		mConfig[idx] = val;
+		switch (val) {
+		case TRUE:
+			mBitwiseConfig.set(idx);
+			mMemberList.set(idx);
+			break;
+		case FALSE:
+			mBitwiseConfig.clear(idx);
+			mMemberList.set(idx);
+			break;
+		case UNSET:
+			mBitwiseConfig.clear(idx);
+			mMemberList.clear(idx);
+			break;
+		}
 	}
-	
 	
 	/**
-	 * Returns a deep copy of this configuration if it is of type string.
-	 * 
-	 * @return a deep copy of this configuration
+	 * Not a good method to call on this implementation
 	 */
-	public Configuration<V> getDeepCopy() {
-		Configuration<V> copy = new Configuration<V>();
-		for (V item : config.keySet()) {
-			copy.config.put(item, config.get(item));
-		}
-		return copy;
-	}
-	
-	public boolean setValues(Set<V> classes, int val) {
-		if (classes.isEmpty()) {
-			return true;
-		}
-		for (V item : classes) {
-			setValues(item, val);
+	public boolean containsMapping(Map<Integer, TriState> mapping) {
+		for (Integer idx : mapping.keySet()) {
+			if (mapping.get(idx) != mConfig[idx]) return false;
 		}
 		return true;
-	}
-	
-	public boolean setValues(V item, int val) {
-		int curr = config.get(item);
-		if (curr == val) {
-			return false;
-		} else {
-			config.put(item, val);
-			return true;
-		}
-	}
-	
-	public String toString() {
-		String s = "Configuration: \n";
-		for (V node : config.keySet()) {
-			s += node.toString() + ": " + config.get(node) + "\n";
-		}
-		return s;
 	}
 	
 	/**
 	 * Checks to see if the two configurations have the same entries AND that the entries are 
 	 * set to the same value
 	 */
-	public boolean hasSameEntries(Configuration<V> other) {
-		if (other.config.size() == this.config.size()) {
-			Set<V> otherKeys = other.getKeySet();
-			for (V item : this.getKeySet()) {
-				if (!otherKeys.contains(item) || other.get(item) != this.get(item)) {
-					return false;
-				}
-			}
-			return true;
-		}
-		return false;
+	public boolean hasSameEntries(Configuration other) {
+		BitSet checkConfig = other.getBitwiseConfig();
+		checkConfig.xor(mBitwiseConfig);
+		
+		BitSet checkMembers = other.getMembers();
+		checkMembers.xor(mMemberList);
+		
+		return checkConfig.isEmpty() && checkMembers.isEmpty();
 	}
 	
 	/**
-	 * Returns true if this configuration is a complete subset of configuration other
+	 * Returns a new configuration that is trimmed such that the only indices in the configuration
+	 * are in the indices passed in.
 	 */
-	public boolean isSubsumed(Configuration<V> other) {
-		for (V key : this.getKeySet()) {
-			if (!other.config.containsKey(key) || other.get(key) != this.get(key)) {
-				return false;
-			}
+	public Configuration trimTo(BitSet indices) {
+		Configuration newConfig = getDeepCopy();
+		for (int i = 0; i < mConfig.length; i++) {
+			if (!indices.get(i)) newConfig.setValue(i, TriState.UNSET);
 		}
-		return true;
+		return newConfig;
 	}
 	
-	@SuppressWarnings("unchecked")
+	/**
+	 * Returns true if this configuration is a complete subset of configuration other. To be a
+	 * complete subset, for each enabled index in this, other must have that index enabled, and
+	 * with the same value. 
+	 */
+	public boolean isSubsumed(Configuration other) {
+		BitSet checkConfig = getBitwiseConfig();
+		checkConfig.andNot(other.getBitwiseConfig());
+		
+		BitSet checkMembers = getMembers();
+		checkMembers.andNot(other.getMembers());
+		
+		return checkConfig.isEmpty() && checkMembers.isEmpty();
+	}
+	
 	@Override
 	public boolean equals(Object o) {
-		if (o instanceof Configuration && ((Configuration<V>) o).config.equals(config)) {
-			return true;
-		}
-		return false;
+		return (o instanceof Configuration && Arrays.equals(((Configuration) o).mConfig, mConfig));
 	}
 	
 	@Override
 	public int hashCode() {
-		return config.hashCode();
+		return Arrays.hashCode(mConfig);
 	}
 	
-	public Configuration<V> trim(Set<V> vals) {
-		Iterator<Map.Entry<V, Integer>> it = config.entrySet().iterator();
-		
-		while(it.hasNext()) {
-			Map.Entry<V, Integer> curr = it.next();
-			if (!vals.contains(curr.getKey())) {
-				it.remove();
+	public String toString() {
+		String s = String.format("Configuration (%d): ", size());
+		for (int i = 0; i < mConfig.length; i++) {
+			switch (mConfig[i]) {
+			case TRUE:
+				s += CONFIG_TRUE;
+				break;
+			case FALSE:
+				s += CONFIG_FALSE;
+				break;
+			case UNSET:
+				s += CONFIG_UNSET;
+				break;
 			}
 		}
-		return this;
+		return s;
 	}
-	
 }

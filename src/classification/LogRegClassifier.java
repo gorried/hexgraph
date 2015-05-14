@@ -83,4 +83,8 @@ public class LogRegClassifier {
 		return w.dot(test);
 	}
 	
+	public double getLogLoss() {
+		return 1;
+	}
+	
 }

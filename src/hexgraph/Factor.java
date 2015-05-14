@@ -1,74 +1,80 @@
 package hexgraph;
+import java.util.BitSet;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import util.TriState;
 
-public class Factor<V> {
-	private Map<Configuration<V>, Double> distribution;
-	private Set<V> variables;
+
+public class Factor {
+	private Map<Configuration, Double> mDistribution;
+	private BitSet mMemberClasses;
 	
+	private final double DEFAULT_SCORE = 1.0;
 	
-	public Factor(Set<Configuration<V>> configSet, Map<V, Double> scoreMap) {
+	// scores must be the length of the total number of classes
+	public Factor(Set<Configuration> configSet, BitSet memberClasses, double[] scores) {
 		this();
-		for (Configuration<V> config : configSet) {
-			if (variables == null) {
-				variables = config.getKeySet();
+		mMemberClasses = memberClasses;
+		for (Configuration config : configSet) {
+			if (!config.getMembers().equals(mMemberClasses)) {
+				throw new IllegalStateException("Configuration not over the proper variables");
 			}
+			
 			double score = 1.0;
-			for (V node : config.getKeySet()) {
-				score *= Math.pow(Math.E, (config.get(node) == 1 ? 1 : 0) * scoreMap.get(node));
+			for (int i = 0; i < scores.length; i++) {
+				score += (config.get(i) == TriState.TRUE ? 1 : 0) * scores[i];
 			}
-			distribution.put(config, score);
+			mDistribution.put(config, score);
 		}
 	}
 	
-	public Factor(Set<Configuration<V>> configSet) {
+	public Factor(Set<Configuration> configSet, BitSet memberClasses) {
 		this();
-		for (Configuration<V> config : configSet) {
-			if (variables == null) {
-				variables = config.getKeySet();
+		mMemberClasses = memberClasses;
+		for (Configuration config : configSet) {
+			if (!config.getMembers().equals(mMemberClasses)) {
+				throw new IllegalStateException("Configuration not over the proper variables");
 			}
-			distribution.put(config, 1.0);
+			mDistribution.put(config, DEFAULT_SCORE);
 		}
 	}
 	
 	public Factor() {
-		distribution = new HashMap<Configuration<V>, Double>();
-		variables = null;
+		mDistribution = new HashMap<Configuration, Double>();
+		mMemberClasses = new BitSet();
 	}
 	
-	private Factor(Map<Configuration<V>, Double> dist, Set<V> vars) {
-		distribution = dist;
-		variables = vars;
+	private Factor(Map<Configuration, Double> dist, BitSet members) {
+		mDistribution = dist;
+		mMemberClasses = members;
 	}
 	
-	public Factor<V> getDeepCopy() {
-		Map<Configuration<V>, Double> newDist = new HashMap<Configuration<V>, Double>();
-		Set<V> newVars = new HashSet<V>();
-		for (V var : variables) {
-			newVars.add(var);
-		}
-		for (Configuration<V> config : distribution.keySet()) {
-			newDist.put(config.getDeepCopy(), distribution.get(config));
-		}
-		return new Factor<V>(newDist, newVars);
+	public Map<Configuration, Double> getDist() {
+		return mDistribution;
 	}
 	
-	public void addConfiguration(Configuration<V> config, double score) {
-		if (variables == null) {
-			variables = config.getKeySet();
+	public Factor getDeepCopy() {
+		Map<Configuration, Double> newDist = new HashMap<Configuration, Double>();
+		BitSet newMembers = (BitSet) mMemberClasses.clone();
+		for (Configuration config : mDistribution.keySet()) {
+			newDist.put(config.getDeepCopy(), mDistribution.get(config));
 		}
-		// verify that this configuration is over the proper variables.
-		if (config.getKeySet().equals(variables)) {
-			distribution.put(config, score);
-		}
+		return new Factor(newDist, newMembers);
 	}
 	
-	public Set<V> getVariables() {
-		return variables;
+	public void addConfiguration(Configuration config, double score) {
+		if (mMemberClasses.isEmpty()) {
+			mMemberClasses = config.getMembers();
+		} else if (!mMemberClasses.equals(config.getMembers())) {
+			throw new IllegalArgumentException("New config is over the wrong variables");
+		}
+		mDistribution.put(config, score);
+	}
+	
+	public BitSet getVariables() {
+		return (BitSet) mMemberClasses.clone();
 	}
 	
 	/**
@@ -77,78 +83,84 @@ public class Factor<V> {
 	 * @param scoreMap
 	 * @return
 	 */
-	public Factor<V> getSubDistribution(Set<V> vars) {
+	public Factor getSubDistribution(BitSet indices) {
 		// Assert variables are in this factor
-		for (V var : vars) {
-			if (!variables.contains(var)) {
-				throw new IllegalArgumentException("Illegal variables in factor subDistribution");
-			}
+		BitSet copyIndices = (BitSet) indices.clone();
+		copyIndices.andNot(mMemberClasses);
+		if (!copyIndices.isEmpty()) {
+			throw new IllegalArgumentException("Subdistribution over unset variables");
 		}
 		// create a smaller factor over the possibilities for variables
-		Factor<V> newFactor = new Factor<V>();
-		Factor<V> junkFactor = getDeepCopy();
-		newFactor.variables = vars;
+		Factor newFactor = new Factor();
+		newFactor.mMemberClasses = indices;
 		
-		Iterator<Configuration<V>> it = junkFactor.distribution.keySet().iterator();
-		while(it.hasNext()) {
-			Configuration<V> curr = it.next();
-			double d = junkFactor.distribution.get(curr);
-			Configuration<V> trimmed = curr.trim(vars);
-			if (newFactor.distribution.containsKey(trimmed)) {
-				newFactor.distribution.put(trimmed, d + newFactor.distribution.get(trimmed));
-			} else {				
-				newFactor.distribution.put(trimmed, d);
+		
+		for (Configuration config : mDistribution.keySet()) {
+			double d = mDistribution.get(config);
+			Configuration trimmed = config.trimTo(indices);
+			if (newFactor.mDistribution.containsKey(trimmed)) {
+				newFactor.mDistribution.put(trimmed, logSumOfExponentials(d, newFactor.mDistribution.get(trimmed)));
+			} else {	
+				newFactor.mDistribution.put(trimmed, d);
 			}
 		}
-		
 		return newFactor;
 	}
 	
-	public void combineDistributionProduct(Factor<V> separator) {
-		for (Configuration<V> config : this.distribution.keySet()) {
-			for (Configuration<V> other : separator.distribution.keySet()) {
+	public void combineDistributionProduct(Factor separator) {
+		for (Configuration config : this.mDistribution.keySet()) {
+			for (Configuration other : separator.mDistribution.keySet()) {
 				// other will be the smaller factor than config
 				if (other.isSubsumed(config)) {
-					distribution.put(config, this.distribution.get(config) * separator.distribution.get(other));
+					mDistribution.put(config, this.mDistribution.get(config) + separator.mDistribution.get(other));
 				}
 			}
 		}
 	}
 	
-	public Factor<V> divide(Factor<V> other) {
-		Factor<V> newFactor = getDeepCopy();
-		for (Configuration<V> config : this.distribution.keySet()) {
-			for (Configuration<V> otherConfig : other.distribution.keySet()) {
+	public Factor divide(Factor other) {
+		Factor newFactor = getDeepCopy();
+		for (Configuration config : newFactor.mDistribution.keySet()) {
+			for (Configuration otherConfig : other.mDistribution.keySet()) {
 				if (config.hasSameEntries(otherConfig)) {
-					this.distribution.put(config, this.distribution.get(config) / other.distribution.get(otherConfig));
+					newFactor.mDistribution.put(config, newFactor.mDistribution.get(config) - other.mDistribution.get(otherConfig));
 				}
 			}
 		}
 		return newFactor;
 	}
 	
-	public double getScoreIfSubsumed(Configuration<V> setting) {
-		for (Configuration<V> config : distribution.keySet()) {
-			if (config.isSubsumed(setting)) {
-				return distribution.get(config);
+	public double getScoreIfSubsumed(Configuration query) {
+		double sum = 0.0;
+		for (Configuration config : mDistribution.keySet()) {
+			if (query.isSubsumed(config)) {
+				sum += mDistribution.get(config);
 			}
 		}
-		return 1;
+		return sum == 0.0 ? 1 : sum;
 	}
+	
+	 public static double logSumOfExponentials(double a, double b) {
+        double max = a > b ? a : b;
+        double sum = 0.0;
+        sum += Math.exp(a - max);
+        sum += Math.exp(b - max);
+        return max + java.lang.Math.log(sum);
+    }
 
 	
 	public void print(String name) {
 		System.out.println("PRINTING FACTOR "+ name + ":");
-		for (Configuration<V> config : distribution.keySet()) {
-			System.out.println(config.toString() + ": " + distribution.get(config));
+		for (Configuration config : mDistribution.keySet()) {
+			System.out.println(config.toString() + ": " + mDistribution.get(config));
 		}
 		System.out.println("------");
 	}
 	
-	public void print(String name, Set<V> members) {
+	public void print(String name, BitSet members) {
 		System.out.println("PRINTING FACTOR "+ name + " with members " + members.toString() + ":");
-		for (Configuration<V> config : distribution.keySet()) {
-			System.out.println(config.toString() + ": " + distribution.get(config));
+		for (Configuration config : mDistribution.keySet()) {
+			System.out.println(config.toString() + ": " + mDistribution.get(config));
 		}
 		System.out.println("------");
 	}
