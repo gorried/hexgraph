@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import org.apache.commons.math3.util.Decimal64;
+
 import util.NameSpace;
 import util.Pair;
 import util.TriState;

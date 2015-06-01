@@ -8,14 +8,12 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 import util.NameSpace;
-import util.SparseVector;
+import util.SparseMatrix;
 
 
 //TODO
@@ -34,6 +32,7 @@ public class ClassificationRunner {
 	private static final String NAME_SPACE_FILE = "src/data_files/namespace/type.list";
 	
 	private static final double TEST_SET_SIZE = 0.1;
+	private static final int BATCH_SIZE = 25;
 	
 	// We will just say there are 100 million features. it really doesnt matter because 
 	// we only iterate over the nonzero instances anyhow.
@@ -63,7 +62,7 @@ public class ClassificationRunner {
 			String currFileName = labelFiles[i].getName();
 			classNames[i] = currFileName.substring(currFileName.indexOf('.') + 1, currFileName.lastIndexOf('.'));
 		}
-		
+
 		Map<String, String> nameMapping = loadVerboseClassNames(NAME_SPACE_FILE);
 		for (int i = 0; i < numClassifiers; i++) {
 			classNames[i] = nameMapping.get(classNames[i]);
@@ -74,31 +73,39 @@ public class ClassificationRunner {
 		// make a HexLrTask
 		File graphFile = new File(GRAPH_FILE);
 		System.out.println("Loading training data");
-		SparseVector[] x = loadData(trainingDataFile, numInstances);
+		SparseMatrix x = loadData(trainingDataFile, numInstances);
 		System.out.println("Shuffling training data");
-		shuffleArray(x);
+		x.shuffleRows();
 		System.out.println("Loading training labels");
-		BitSet[] y = loadClasses(labelFiles, numInstances, numClassifiers);
-		HexLrTask task = new HexLrTask(graphFile, classNames, NUM_FEATURES, mNameSpace);
+		SparseMatrix y = loadClasses(labelFiles, numInstances, numClassifiers);
+		System.out.println("Creating task");
+		SparseHexLrTask task = new SparseHexLrTask(graphFile, classNames, NUM_FEATURES, mNameSpace);
 		
-		int testingCutoff = (int)Math.floor(x.length * (1 - TEST_SET_SIZE));
+		int testingCutoff = (int)Math.floor(x.getRows() * (1 - TEST_SET_SIZE));
 		
 		System.out.println("Starting training");
-		// run it baby
-		task.train(Arrays.copyOfRange(x, 0, testingCutoff), Arrays.copyOfRange(y, 0, testingCutoff), 15);
+		task.train(x.getSubMatrix(0, testingCutoff),y.getSubColMatrix(0, testingCutoff), BATCH_SIZE);
 		System.out.println("Writing model file");
 		task.writeModelFile(DATA_FILE_FOLDER, "figer_hex.model");
 		// test it
 		System.out.println("Testing");
-		task.test(Arrays.copyOfRange(x, testingCutoff + 1, x.length), Arrays.copyOfRange(y, testingCutoff + 1, y.length));
+		task.test(x.getSubMatrix(testingCutoff, numInstances),y.getSubColMatrix(testingCutoff, numInstances));
 	}
 	
-	private static BitSet[] loadClasses(File[] labelFiles, int numInstances, int numClassifiers) throws IOException {
+	/**
+	 * Loads the labels for the training data
+	 * 
+	 * @param labelFiles - an array containing a file object for a
+	 * @param numInstances - the number of training instances
+	 * @param numClassifiers - the number of classifiers we are training. in the case that
+	 * 	numClassifiers is less than the length of the labelFiles array, we will only look at the
+	 * 	first numClassifiers files in that array
+	 * @return a {@link BitSet} array containing labels for our training data
+	 * @throws IOException if any of the files in labelFiles do not exist
+	 */
+	private static SparseMatrix loadClasses(File[] labelFiles, int numInstances, int numClassifiers) throws IOException {
 		BufferedReader br = null;
-		BitSet[] data = new BitSet[numInstances];
-		for (int i = 0; i < numInstances; i++) {
-			data[i] = new BitSet(numClassifiers);
-		}
+		SparseMatrix data = new SparseMatrix(numInstances, numClassifiers);
 		for (int c = 0; c < numClassifiers; c++) {
 			try {				
 				br = new BufferedReader(new FileReader(labelFiles[c].getPath()));
@@ -106,7 +113,7 @@ public class ClassificationRunner {
 				String line = "";
 				while ((line = br.readLine()) != null && lineCount < numInstances) {
 					if (Integer.parseInt(line) == 1) {
-						data[lineCount].set(c);
+						data.put(c, lineCount, 1.0);
 					}
 					lineCount++;
 				}
@@ -122,6 +129,8 @@ public class ClassificationRunner {
 		return data;
 	}
 	
+	// TODO: class names are being loaded incorrectly, make sure the namespace figures into the
+	// loading of training labels
 	private static Map<String, String> loadVerboseClassNames(String filepath) throws IOException{
 		Map<String, String> mapping = new HashMap<String, String>();
 		BufferedReader br = null;
@@ -144,8 +153,8 @@ public class ClassificationRunner {
 	}
 	
 	
-	private static SparseVector[] loadData(File dataFile, int numInstances) throws IOException{
-		SparseVector[] data = new SparseVector[numInstances];
+	private static SparseMatrix loadData(File dataFile, int numInstances) throws IOException{
+		SparseMatrix data = new SparseMatrix(NUM_FEATURES, numInstances);
 		BufferedReader br = null;
 		try {
 			br = new BufferedReader(new FileReader(dataFile.getPath()));
@@ -154,12 +163,14 @@ public class ClassificationRunner {
 			while ((line = br.readLine()) != null) {
 				line.trim();
 				String[] splitLine = line.split(" ");
-				data[lineCount] = new SparseVector(NUM_FEATURES);
-				data[lineCount].put(0, 1.0);
+				data.put(lineCount, 0, 1.0);;
 				for (String entry : splitLine) {
 					if (!entry.equals("")) {							
 						String[] splitEntry = entry.split(":");
-						data[lineCount].put(Integer.parseInt(splitEntry[0]), Double.parseDouble(splitEntry[1]));
+						data.put(
+								lineCount,
+								Integer.parseInt(splitEntry[0]),
+								Double.parseDouble(splitEntry[1]));
 					}
 				}
 				lineCount++;
@@ -175,18 +186,6 @@ public class ClassificationRunner {
 		}
 		
 		return data;
-	}
-	
-	private static void shuffleArray(SparseVector[] array) {
-	    int index;
-	    SparseVector temp;
-	    Random random = new Random();
-	    for (int i = array.length - 1; i > 0; i--) {
-	        index = random.nextInt(i + 1);
-	        temp = array[index];
-	        array[index] = array[i];
-	        array[i] = temp;
-	    }
 	}
 	
 	public static int countLines(String filename) throws IOException {

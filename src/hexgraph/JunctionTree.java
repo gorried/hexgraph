@@ -48,7 +48,7 @@ public class JunctionTree<V> {
 			if (nodeConsumes(node, members)) return;
 		}
 		nodes.add(new JunctionTreeNode<V>(members, mNumClasses, mNameSpace));
-		System.out.println("added node " + members.size() + " " + members.toString());
+		// System.out.println("added node " + members.size() + " " + members.toString());
 	}
 	
 	private void addEdge(JunctionTreeNode<V> first, JunctionTreeNode<V> second) {
@@ -142,11 +142,6 @@ public class JunctionTree<V> {
 			}
 		}
 		this.edges.addAll(finalEdges);
-		
-		System.out.print("EDGES: ");
-		for (JunctionTreeEdge<V> edge : this.edges) {
-			System.out.println(edge.weight + edge.toString());
-		}
 	}
 	
 	public Map<Configuration, Double> exactInference(Set<Configuration> graphStateSpace,
