@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Map;
 import java.util.Set;
@@ -45,18 +46,9 @@ public class SparseHexLrTask {
 	public static final int CLASSIFICATION_TRUE = 1;
 	public static final int CLASSIFICATION_FALSE = 0;
 	
-	private final int NUM_ITERATIONS = 10;
+	private static final boolean USING_HEX = true;
 	
-	/**
-	 * Learning Rate, passed in to each {@link SparseLogRegClassifier}
-	 * TODO: put in a function to control the learning rate
-	 */
-	private double ETA = 0.1;
-	
-	/**
-	 * Regularization parameter, passed in to each {@link SparseLogRegClassifier}
-	 */
-	private double LAMBDA = 0.3;
+	private final int NUM_ITERATIONS = 1;
 	
 	/**
 	 * Constructs a new {@link HexLrTask} from the given parameters.
@@ -84,10 +76,6 @@ public class SparseHexLrTask {
 		mNumFeatures = numFeatures;
 		
 		mClassifiers = new SparseLogRegClassifier[cnames.length];
-		// for each classifier, initialize the classifier to the correct number of weights
-		for (int i = 0; i < mClassifiers.length; i++) {
-			mClassifiers[i] = new SparseLogRegClassifier(mNumFeatures, ETA, LAMBDA);
-		}
 	}
 	
 	/**
@@ -118,7 +106,7 @@ public class SparseHexLrTask {
 					String[] splitEntry = entry.split(":");
 					weights[Integer.parseInt(splitEntry[0])] = Double.parseDouble(splitEntry[1]);
 				}
-				mClassifiers[i] = new SparseLogRegClassifier(weights, ETA, LAMBDA);
+				mClassifiers[i] = new SparseLogRegClassifier(weights, 0.1, 0.3);
 			}
 			
 		} catch (Exception e) {
@@ -146,7 +134,11 @@ public class SparseHexLrTask {
 	 * 	class. Will have row length numClassifiers
 	 * @param numIterations - the number of iterations over our data we will use to train
 	 */
-	public void train(SparseMatrix x_train, SparseMatrix y_train, int batchSize) {
+	public void train(SparseMatrix x_train, SparseMatrix y_train, int batchSize, double eta, double lambda) {
+		// for each classifier, initialize the classifier to the correct number of weights
+		for (int i = 0; i < mClassifiers.length; i++) {
+			mClassifiers[i] = new SparseLogRegClassifier(mNumFeatures, eta, lambda);
+		}
 		// assert there are the same number of training examples and classes
 		if (x_train.getCols() != mNumFeatures) {
 			throw new IllegalStateException(
@@ -164,7 +156,9 @@ public class SparseHexLrTask {
 		// run the micro-batching
 		for (int x = 0; x < NUM_ITERATIONS; x++) {
 			// chop the training and testing set into batches and run them in succession
+			long startTime = System.currentTimeMillis();
 			int numInstances = x_train.getRows();
+			double[] losses = new double[mClassifiers.length];
 			for (int i = 0; i < numInstances; i += batchSize) {
 				System.out.println(String.format("Iteration %d batch %d", x, i));
 				if (numInstances - i > batchSize) {
@@ -173,6 +167,8 @@ public class SparseHexLrTask {
 					microbatch(x_train.getSubMatrix(i, numInstances), y_train, i, numInstances);
 				}
 			}
+			long endTime = System.currentTimeMillis();
+			System.out.println(String.format("Single iteration of microbatch took %d ms", endTime - startTime));
 		}
 	}
 	
@@ -182,35 +178,89 @@ public class SparseHexLrTask {
 			scores[c] = mClassifiers[c].train(x_batch);
 		}
 		// get the hex scores
-		for (int i = 0; i < x_batch.getRows(); i++) {
-			double[] instanceScore = new double[mClassifiers.length];
-			for (int c = 0; c < mClassifiers.length; c++) {
-				instanceScore[c] = scores[c][i];
-			}
-			instanceScore = getHexData(instanceScore);
-			for (int c = 0; c < mClassifiers.length; c++) {
-				scores[c][i] = instanceScore[c];
+		if (USING_HEX) {			
+			for (int i = 0; i < x_batch.getRows(); i++) {
+				double[] instanceScore = new double[mClassifiers.length];
+				for (int c = 0; c < mClassifiers.length; c++) {
+					instanceScore[c] = scores[c][i];
+				}
+				instanceScore = getHexData(instanceScore);
+				for (int c = 0; c < mClassifiers.length; c++) {
+					scores[c][i] = instanceScore[c];
+				}
 			}
 		}
 		// Run the update step
-		for (int c = 0; c < mClassifiers.length; c++)
-			System.out.print(mClassifiers[c].getLogLoss(scores[c], y_train.subVector(c, lowData, hiData)) + ", ");
 		for (int c = 0; c < mClassifiers.length; c++) {
 			mClassifiers[c].update(x_batch, scores[c], y_train.subVector(c, lowData, hiData));
 		}
-		System.out.println();
 	}
 	
 	/**
 	 * Runs independent cross validation to tune hyperparameters of each classifier
 	 * 
-	 * @param k
 	 * @param x_train
 	 * @param y_train
 	 * @param numIterations
 	 */
-	private void kFoldCrossValidation(int k, SparseMatrix x_train, SparseMatrix y_train, int numIterations) {
+	private double[] kFoldCrossValidation(SparseMatrix x_train, SparseMatrix y_train, int numIterations) {
+		double bestLambda = -1.0;
+		double bestEta = -1.0;
+		double bestAccuracy = 0.0;
 		
+		int k = 10;
+		double[] etas = {0.001, 0.01, 0.1, 1};
+		double[] lambdas = {0.1, 0.2, 0.3, 0.4, 0.5};
+		// split the test and training data into k parts
+		
+		// iterate over the parameters (learning rate and reg param)
+		for (double eta : etas) {
+			for (double lambda : lambdas) {
+				if (crossValidationInstance(x_train, y_train, k, eta, lambda, numIterations) > bestAccuracy) {
+					bestEta = eta;
+					bestLambda = lambda;
+				}
+			}
+		}
+		
+		// return our learned values for eta and lambda
+		return new double[] {bestLambda, bestEta};
+	}
+	
+	private double crossValidationInstance(
+			SparseMatrix x_train,
+			SparseMatrix y_train,
+			int k,
+			double eta,
+			double lambda,
+			int numIterations) {
+		// initalize mClassifers to the proper settings
+		for (int i = 0; i < mClassifiers.length; i++) {
+			mClassifiers[i] = new SparseLogRegClassifier(mNumFeatures, eta, lambda);
+		}
+		double[] accuracies = new double[k];
+		
+		// iterate over the parts, selecting one as the test set
+		for (int i = 0; i < k; i++) {
+			// i is the bucket of the held out set
+			int testRegionStart = i / k * x_train.getRows();
+			int testRegionEnd = (i + 1) / k * x_train.getRows();
+			for (int j = 0; j < k; j++) {	
+				if (j != i) {
+					// train on j
+					int trainRegionStart = j / k * x_train.getRows();
+					int trainRegionEnd = (j + 1) / k * x_train.getRows();
+					microbatch(x_train.getSubMatrix(trainRegionStart, trainRegionEnd), y_train, trainRegionStart, trainRegionEnd);
+				}
+			}
+			// make a new SparseMatrix with the labels for each classifier in row order
+			SparseMatrix y_test = y_train.getSubColMatrix(testRegionStart, testRegionEnd);
+			
+			// test on bucket i and record the accuracy in the array 
+			accuracies[i] = test(x_train.getSubMatrix(testRegionStart, testRegionEnd), y_test);
+		}
+		
+		return getSum(accuracies) / accuracies.length;
 	}
 	
 	/**
@@ -254,46 +304,104 @@ public class SparseHexLrTask {
 	 * @param y_test - an array of {@link BitSet} containing the gold labels for the testing data for
 	 * 		each class
 	 */
-	public void test(SparseMatrix x_test, SparseMatrix y_test) {
-		// iterate over the classifiers
-		for (int j = 0; j < mClassifiers.length; j++) {
-			int[] res = new int[4];
-			// for each classifier iterate over the data set
+	public double test(SparseMatrix x_test, SparseMatrix y_test) {
+		double[] accuracies = new double[mClassifiers.length];
+		double[] precisions = new double[mClassifiers.length];
+		double[] recalls = new double[mClassifiers.length];
+		if (USING_HEX) {
+			int[][] results = new int[mClassifiers.length][4];
+			double[][] scores = new double[mClassifiers.length][];
+			for (int c = 0; c < mClassifiers.length; c++) {
+				scores[c] = mClassifiers[c].train(x_test);
+			}
+			// get the score for every instance
 			for (int i = 0; i < x_test.getRows(); i++) {
-				if (mClassifiers[j].getClassification(x_test.getRow(i))) {
-					if (y_test.get(j, i) == 1.0) {
-						res[0]++;
+				double[] instanceScore = new double[mClassifiers.length];
+				for (int c = 0; c < mClassifiers.length; c++) {
+					instanceScore[c] = scores[c][i];
+				}
+				instanceScore = getHexData(instanceScore);
+				// System.out.println(Arrays.toString(instanceScore));
+				for (int c = 0; c < mClassifiers.length; c++) {
+					if (instanceScore[c] > 0.9) {
+						if (y_test.get(c, i) == 1.0) {
+							results[c][0]++;
+						} else {
+							results[c][2]++;
+						}
 					} else {
-						res[2]++;
-					}
-				} else {
-					if (y_test.get(j, i) == 1.0) {
-						res[3]++;
-					} else {
-						res[1]++;
+						if (y_test.get(c, i) == 1.0) {
+							results[c][3]++;
+						} else {
+							results[c][1]++;
+						}
 					}
 				}
 			}
-			System.out.println("Results for" + mClassNames[j]);
-			System.out.println("Accuracy: " + getAccuracy(res));
-			System.out.println("Precision: " + getPrecision(res));
-			System.out.println("Recall: " + getRecall(res));
+			
+			for (int c = 0; c < mClassifiers.length; c++) {
+				int[] res = results[c];
+				accuracies[c] = getAccuracy(res);
+				precisions[c] = getPrecision(res);
+				recalls[c] = getRecall(res);
+				System.out.println("Results for " + mClassNames[c] + " using HEX");
+				System.out.println(Arrays.toString(res));
+				System.out.println("Accuracy: " + getAccuracy(res));
+				System.out.println("Precision: " + getPrecision(res));
+				System.out.println("Recall: " + getRecall(res));
+				System.out.println();
+			}
+			
+			
+		} else {
+			// iterate over the classifiers
+			for (int j = 0; j < mClassifiers.length; j++) {
+				int[] res = new int[4];
+				// for each classifier iterate over the data set	
+					for (int i = 0; i < x_test.getRows(); i++) {
+						if (mClassifiers[j].getClassification(x_test.getRow(i))) {
+							if (y_test.get(j, i) == 1.0) {
+								res[0]++;
+							} else {
+								res[2]++;
+							}
+						} else {
+							if (y_test.get(j, i) == 1.0) {
+								res[3]++;
+							} else {
+								res[1]++;
+							}
+						}
+					}
+				accuracies[j] = getAccuracy(res);
+				precisions[j] = getPrecision(res);
+				recalls[j] = getRecall(res);
+				System.out.println("Results for " + mClassNames[j]);
+				System.out.println(Arrays.toString(res));
+				System.out.println("Accuracy: " + getAccuracy(res));
+				System.out.println("Precision: " + getPrecision(res));
+				System.out.println("Recall: " + getRecall(res));
+				System.out.println();
+			}
 		}
-		
+		System.out.println("Overall Performance: " + getSum(accuracies) / accuracies.length);
+		return getSum(accuracies) / accuracies.length;
 	}
 	
 	/**
 	 * Returns the classification precision of a given set of predictions
 	 */
 	private double getPrecision(int[] res) {
-		return (double)(res[0]) / (res[0] + res[3]);
+		if (res[0] + res[3] == 0) return 0.0;
+		else return (double)(res[0]) / (res[0] + res[3]);
 	}
 	
 	/**
 	 * Returns the classification recall of a given set of predictions
 	 */
 	private double getRecall(int[] res) {
-		return (double)(res[0]) / (res[0] + res[2]);
+		if (res[0] + res[2] == 0) return 0.0;
+		else return (double)(res[0]) / (res[0] + res[2]);
 	}
 	
 	/**
@@ -304,13 +412,21 @@ public class SparseHexLrTask {
 	}
 	
 	/**
-	 * Helper method to return the sum of an int array
+	 * Helper methods to return the sum of an array
 	 * 
 	 * @param res - the int array we are summing
 	 * @return the sum of the values in res
 	 */
 	private int getSum(int[] res) {
 		int sum = 0;
+		for (int i = 0; i < res.length; i++) {
+			sum += res[i];
+		}
+		return sum;
+	}
+	
+	private double getSum(double[] res) {
+		double sum = 0;
 		for (int i = 0; i < res.length; i++) {
 			sum += res[i];
 		}

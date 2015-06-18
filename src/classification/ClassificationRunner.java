@@ -27,12 +27,12 @@ import util.SparseMatrix;
 public class ClassificationRunner {
 	private static final String DATA_FILE_FOLDER = "src/data_files/";
 	private static final String TRAINING_DATA = DATA_FILE_FOLDER + "train_small.features";
-	private static final String TRAINING_LABEL_FILE_DIR = "src/data_files/labels/";
+	private static final String TRAINING_LABEL_FILE_DIR = "src/data_files/labels_small/";
 	private static final String GRAPH_FILE = "src/graph_files/figer/figer_new.hxg";
 	private static final String NAME_SPACE_FILE = "src/data_files/namespace/type.list";
 	
 	private static final double TEST_SET_SIZE = 0.1;
-	private static final int BATCH_SIZE = 25;
+	private static final int BATCH_SIZE = 50;
 	
 	// We will just say there are 100 million features. it really doesnt matter because 
 	// we only iterate over the nonzero instances anyhow.
@@ -84,7 +84,7 @@ public class ClassificationRunner {
 		int testingCutoff = (int)Math.floor(x.getRows() * (1 - TEST_SET_SIZE));
 		
 		System.out.println("Starting training");
-		task.train(x.getSubMatrix(0, testingCutoff),y.getSubColMatrix(0, testingCutoff), BATCH_SIZE);
+		task.train(x.getSubMatrix(0, testingCutoff),y.getSubColMatrix(0, testingCutoff), BATCH_SIZE, 0.1, 0.3);
 		System.out.println("Writing model file");
 		task.writeModelFile(DATA_FILE_FOLDER, "figer_hex.model");
 		// test it

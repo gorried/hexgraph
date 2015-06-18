@@ -1,7 +1,6 @@
 package util;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
@@ -9,7 +8,6 @@ public class SparseMatrix {
     private final int N;          
     private SparseVector[] rows;   // the rows, each row is a sparse vector
 
-    // initialize an N-by-N matrix of all 0s
     public SparseMatrix(int width, int height) {
         this.N  = width;
         rows = new SparseVector[height];
@@ -98,14 +96,13 @@ public class SparseMatrix {
     }
     
     // return the vector matrix product b = xA
-    // TODO: can be made more efficient with an ordered mapping of indices to visit
     public SparseVector columnDot(SparseVector x) {
     	if (x.size() != getRows()) throw new RuntimeException("dimensions disagree");
     	SparseVector res = new SparseVector(getCols());
     	// scale and merge
     	for (int i = 0; i < x.size(); i++) {
-    		rows[i].scale(x.get(i));
-    		res = res.plus(rows[i]);
+    		SparseVector curr = rows[i].scale(x.get(i));
+    		res = res.plus(curr);
     	}
     	return res;
     }

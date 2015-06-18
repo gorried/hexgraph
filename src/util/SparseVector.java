@@ -1,7 +1,6 @@
 package util;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -120,7 +119,7 @@ public class SparseVector {
         if (a.N != b.N) throw new RuntimeException("Vector lengths disagree");
         SparseVector c = new SparseVector(N);
         for (int i : a.map.keySet()) c.put(i, a.get(i));                // c = a
-        for (int i : b.map.keySet()) c.put(i, b.get(i) - c.get(i));     // c = c - b
+        for (int i : b.map.keySet()) c.put(i, c.get(i) - b.get(i));     // c = c - b
         return c;
     }
     
@@ -129,7 +128,7 @@ public class SparseVector {
         if (a.N != b.length) throw new RuntimeException("Vector lengths disagree");
         SparseVector c = new SparseVector(N);
         for (int i : a.map.keySet()) c.put(i, a.get(i));                // c = a
-        for (int i = 0; i < b.length; i++) c.put(i, b[i] - c.get(i));     // c = c - b
+        for (int i = 0; i < b.length; i++) c.put(i, c.get(i) - b[i]);     // c = c - b
         return c;
     }
 

@@ -35,8 +35,8 @@ public class SparseLogRegClassifier {
 	}
 
 	// TODO: use an adaptive gradient
-	public void update(SparseMatrix instances, double[] scores, SparseVector labels) {
-		SparseVector deltas = instances.columnDot(labels.minus(scores)).scale(instances.getRows());
+	public void update(SparseMatrix instances, double[] scores, SparseVector labels) {	
+		SparseVector deltas = instances.columnDot(labels.minus(scores)).scale(1.0 / instances.getRows());
 		// update the bias
 		w[0] += eta * deltas.get(0);
 		double biasSave = w[0];
@@ -59,10 +59,8 @@ public class SparseLogRegClassifier {
 	    double prob_sum = 0.0;
 	    for (int i = 0; i < scores.length; i++) {
 	    	double y_i = labels.get(i);
-	    	if (y_i == -1) y_i = 0;
-	        prob_sum += Math.log((1 - y_i) + (2 * y_i - 1) * scores[i]);
+	    	prob_sum += Math.log((1 - y_i) + (2 * y_i - 1) * scores[i]);
 	    }
-	    // System.out.println(String.format("term one: %f, prob_sum: %f, score: %f", term_one, prob_sum, scores[0]));
 	    return term_one - prob_sum / scores.length;
 	}
 	
