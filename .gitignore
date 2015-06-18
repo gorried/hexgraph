@@ -7,4 +7,8 @@ bin/
 .project
 .classpath
 
-src/*_files
+src/score_files
+src/output_files
+src/data_files/labels
+src/data_files/train.features
+src/data_files/*.model
