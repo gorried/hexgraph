@@ -14,7 +14,7 @@ from os.path import isfile, join
 INPUT_FILE = 'train.features'
 INPUT_FILE_SIZE = 8352136
 OUTPUT_FILE = 'train_small.features'
-SAMPLE_SIZE = 11000
+SAMPLE_SIZE = 110000
 INPUT_LABEL_DIR = 'labels/'
 OUTPUT_LABEL_DIR = 'labels_small/'
 

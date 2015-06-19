@@ -38,7 +38,7 @@ public class SparseHexLrTask {
 	private JunctionTree<String> mJunctionTree;
 	private HEXGraphMethods mHexGraphMethods;
 	private SparseLogRegClassifier[] mClassifiers;
-	private String[] mClassNames;
+	// private String[] mClassNames;
 	private int mNumFeatures;
 	private NameSpace<String> mNameSpace;
 	private Map<JunctionTreeNode<String>, Set<Configuration>> mJunctionTreeStateSpace;
@@ -49,6 +49,7 @@ public class SparseHexLrTask {
 	private static final boolean USING_HEX = true;
 	
 	private final int NUM_ITERATIONS = 1;
+	private final int MAX_THREADS = 15;
 	
 	/**
 	 * Constructs a new {@link HexLrTask} from the given parameters.
@@ -60,7 +61,7 @@ public class SparseHexLrTask {
 	 * 	{@link HEXGraph}
 	 * @throws IOException if graphFile does not exist.
 	 */
-	public SparseHexLrTask(File graphFile, String[] cnames, int numFeatures, NameSpace<String> nameSpace) throws IOException {
+	public SparseHexLrTask(File graphFile, int numFeatures, NameSpace<String> nameSpace) throws IOException {
 		mNameSpace = nameSpace;
 		HEXGraphFactory factory = new HEXGraphFactory(nameSpace);
 		factory.buildHEXGraph(graphFile.getPath());
@@ -72,10 +73,9 @@ public class SparseHexLrTask {
 		System.out.println(String.format("Building junction tree took %d ms", endTime - startTime));
 		mJunctionTreeStateSpace = mHexGraphMethods.getJunctionTreeStateSpaces(mJunctionTree);
 		
-		mClassNames = cnames;
 		mNumFeatures = numFeatures;
 		
-		mClassifiers = new SparseLogRegClassifier[cnames.length];
+		mClassifiers = new SparseLogRegClassifier[nameSpace.size()];
 	}
 	
 	/**
@@ -97,10 +97,10 @@ public class SparseHexLrTask {
 			int numClasses = Integer.parseInt(br.readLine().trim());
 			mNumFeatures = Integer.parseInt(br.readLine().trim());
 			mClassifiers = new SparseLogRegClassifier[numClasses]; 
-			mClassNames = new String[numClasses];
+			String[] names = new String[mClassifiers.length];
 			
 			for (int i = 0; i < numClasses; i++) {
-				mClassNames[i] = br.readLine();
+				names[i] = br.readLine();
 				double[] weights = new double[mNumFeatures];
 				for (String entry : br.readLine().trim().split(" ")) {
 					String[] splitEntry = entry.split(":");
@@ -108,6 +108,7 @@ public class SparseHexLrTask {
 				}
 				mClassifiers[i] = new SparseLogRegClassifier(weights, 0.1, 0.3);
 			}
+			mNameSpace = new NameSpace<String>(names);
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -178,12 +179,13 @@ public class SparseHexLrTask {
 			scores[c] = mClassifiers[c].train(x_batch);
 		}
 		// get the hex scores
-		if (USING_HEX) {			
+		if (USING_HEX) {
 			for (int i = 0; i < x_batch.getRows(); i++) {
 				double[] instanceScore = new double[mClassifiers.length];
 				for (int c = 0; c < mClassifiers.length; c++) {
 					instanceScore[c] = scores[c][i];
 				}
+				// threading for this part
 				instanceScore = getHexData(instanceScore);
 				for (int c = 0; c < mClassifiers.length; c++) {
 					scores[c][i] = instanceScore[c];
@@ -279,10 +281,10 @@ public class SparseHexLrTask {
 		}
 		File outFile = new File(directory + filename);
 		final PrintWriter writer = new PrintWriter(outFile.getPath(), "UTF-8");
-		writer.print(mClassNames.length);
+		writer.print(mNameSpace.size());
 		
-		for (int i = 0; i < mClassNames.length; i++) {
-			writer.println(mClassNames[i]);
+		for (int i = 0; i < mNameSpace.size(); i++) {
+			writer.println(mNameSpace.get(i));
 			double[] weights = mClassifiers[i].getWeights();
 			for (int j = 0; j < weights.length; j++) {
 				if (weights[j] != 0.0) {
@@ -344,7 +346,7 @@ public class SparseHexLrTask {
 				accuracies[c] = getAccuracy(res);
 				precisions[c] = getPrecision(res);
 				recalls[c] = getRecall(res);
-				System.out.println("Results for " + mClassNames[c] + " using HEX");
+				System.out.println("Results for " + mNameSpace.get(c) + " using HEX");
 				System.out.println(Arrays.toString(res));
 				System.out.println("Accuracy: " + getAccuracy(res));
 				System.out.println("Precision: " + getPrecision(res));
@@ -376,7 +378,7 @@ public class SparseHexLrTask {
 				accuracies[j] = getAccuracy(res);
 				precisions[j] = getPrecision(res);
 				recalls[j] = getRecall(res);
-				System.out.println("Results for " + mClassNames[j]);
+				System.out.println("Results for " + mNameSpace.get(j));
 				System.out.println(Arrays.toString(res));
 				System.out.println("Accuracy: " + getAccuracy(res));
 				System.out.println("Precision: " + getPrecision(res));
@@ -449,7 +451,7 @@ public class SparseHexLrTask {
 		
 		double max = -1;
 		for (int i = 0; i < scores.length; i++) {
-			hexScores[i] = results.get(mClassNames[i]);
+			hexScores[i] = results.get(mNameSpace.get(i));
 			if (hexScores[i] > max) max = hexScores[i];
 		}
 		

@@ -6,8 +6,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.commons.math3.util.Decimal64;
-
 import util.NameSpace;
 import util.Pair;
 import util.TriState;
@@ -16,7 +14,7 @@ import util.TriState;
  * A class containing methods that utilize {@link HEXGraph} and {@link JunctionTree} properties to
  * infer about the information stored within them.
  */
-public class HEXGraphMethods {
+public class HEXGraphMethods implements Runnable {
 	private HEXGraph<String> mDenseGraph;
 	private HEXGraph<String> mSparseGraph;
 	
@@ -33,6 +31,11 @@ public class HEXGraphMethods {
 		selectGraph(factory, key);
 		mStateSpaceMapping = new HashMap<HEXGraph<String>, Set<Configuration>>();
 		mNameSpace = nameSpace;
+	}
+	
+	@Override
+	public void run() {
+		
 	}
 	
 	/**

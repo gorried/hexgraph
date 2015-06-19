@@ -42,6 +42,7 @@ public class ClassificationRunner {
 	
 	public static void main(String[] args) throws IOException {
 		setNameSpace(NAME_SPACE_FILE);
+		System.out.println("Loaded class names");
 		// Load the training data
 		File trainingDataFile = new File(TRAINING_DATA);
 		int numInstances = countLines(trainingDataFile.getPath());
@@ -56,20 +57,6 @@ public class ClassificationRunner {
 		}
 		
 		int numClassifiers = labelFiles.length;
-		// Array that will hold the string names
-		String[] classNames = new String[numClassifiers];
-		for (int i = 0; i < numClassifiers; i++) {
-			String currFileName = labelFiles[i].getName();
-			classNames[i] = currFileName.substring(currFileName.indexOf('.') + 1, currFileName.lastIndexOf('.'));
-		}
-
-		Map<String, String> nameMapping = loadVerboseClassNames(NAME_SPACE_FILE);
-		for (int i = 0; i < numClassifiers; i++) {
-			classNames[i] = nameMapping.get(classNames[i]);
-		}
-		
-		System.out.println("Loaded class names");
-			
 		// make a HexLrTask
 		File graphFile = new File(GRAPH_FILE);
 		System.out.println("Loading training data");
@@ -79,7 +66,7 @@ public class ClassificationRunner {
 		System.out.println("Loading training labels");
 		SparseMatrix y = loadClasses(labelFiles, numInstances, numClassifiers);
 		System.out.println("Creating task");
-		SparseHexLrTask task = new SparseHexLrTask(graphFile, classNames, NUM_FEATURES, mNameSpace);
+		SparseHexLrTask task = new SparseHexLrTask(graphFile, NUM_FEATURES, mNameSpace);
 		
 		int testingCutoff = (int)Math.floor(x.getRows() * (1 - TEST_SET_SIZE));
 		
@@ -128,29 +115,7 @@ public class ClassificationRunner {
 		
 		return data;
 	}
-	
-	// TODO: class names are being loaded incorrectly, make sure the namespace figures into the
-	// loading of training labels
-	private static Map<String, String> loadVerboseClassNames(String filepath) throws IOException{
-		Map<String, String> mapping = new HashMap<String, String>();
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(filepath));
-			String line = "";
-			while ((line = br.readLine()) != null) {
-				line.trim();
-				String[] splitLine = line.split("\\s+");
-				mapping.put(splitLine[0], splitLine[1]);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			if (br != null) {
-				br.close();
-			}
-		}
-		return mapping;
-	}
+
 	
 	
 	private static SparseMatrix loadData(File dataFile, int numInstances) throws IOException{
