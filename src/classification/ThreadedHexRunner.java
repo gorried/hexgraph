@@ -21,15 +21,21 @@ public class ThreadedHexRunner {
 	private JunctionTree<String>[] mJunctionTrees;
 	private Map<JunctionTreeNode<String>, Set<Configuration>>[] mJunctionTreeStateSpaces;
 	
+	private double[][] mScores;
+	
 	private int mNextRun = 0;
 	
 	private final int NUM_THREADS = 15;
+	private final int NUM_CLASSIFIERS;
 	
 	@SuppressWarnings("unchecked")
 	public ThreadedHexRunner(
 			HEXGraphMethods hexGraphMethods,
 			JunctionTree<String> junctionTree,
-			NameSpace<String> nameSpace) {
+			NameSpace<String> nameSpace,
+			int numClassifiers) {
+		NUM_CLASSIFIERS = numClassifiers;
+		
 		mExecutorService = Executors.newFixedThreadPool(NUM_THREADS);
 		mNameSpace = nameSpace;
 		
@@ -48,18 +54,40 @@ public class ThreadedHexRunner {
 		
 	}
 
-	public double[] process(double[] scores) {
-		try {
-			mExecutorService.execute(new HexDelegate(mHexGraphMethods[mNextRun],
-					scores, mJunctionTrees[mNextRun], mJunctionTreeStateSpaces[mNextRun], mNameSpace));
-			mNextRun++;
-			mNextRun %= NUM_THREADS;
-		} catch (Exception e) {
-			if (mExecutorService != null) {
-				mExecutorService.shutdown();
+	public double[][] process(double[][] scores) {
+		mScores = new double[scores.length][scores[0].length];
+		for (int i = 0; i < scores.length; i++) {			
+			try {
+				double[] instanceScore = new double[NUM_CLASSIFIERS];
+				for (int c = 0; c < NUM_CLASSIFIERS; c++) {
+					instanceScore[c] = scores[c][i];
+				}
+				mExecutorService.execute(
+						new HexDelegate(
+								mHexGraphMethods[mNextRun],
+								instanceScore,
+								mJunctionTrees[mNextRun],
+								mJunctionTreeStateSpaces[mNextRun],
+								mNameSpace,
+								this,
+								i)
+						);
+				mNextRun++;
+				mNextRun %= NUM_THREADS;
+				
+			} catch (Exception e) {
+				if (mExecutorService != null) {
+					mExecutorService.shutdown();
+				}
 			}
 		}
 		return scores;
+	}
+	
+	public void onThreadTerminate(int col, double[] scores) {
+		for (int c = 0; c < NUM_CLASSIFIERS; c++) {
+			mScores[c][col] = scores[c];
+		}
 	}
 	
 	public void shutdown() {

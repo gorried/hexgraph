@@ -38,7 +38,7 @@ public class SparseHexLrTask {
 	private JunctionTree<String> mJunctionTree;
 	private HEXGraphMethods mHexGraphMethods;
 	private SparseLogRegClassifier[] mClassifiers;
-	// private String[] mClassNames;
+	private ThreadedHexRunner mThreadedHexRunner;
 	private int mNumFeatures;
 	private NameSpace<String> mNameSpace;
 	private Map<JunctionTreeNode<String>, Set<Configuration>> mJunctionTreeStateSpace;
@@ -74,7 +74,7 @@ public class SparseHexLrTask {
 		mJunctionTreeStateSpace = mHexGraphMethods.getJunctionTreeStateSpaces(mJunctionTree);
 		
 		mNumFeatures = numFeatures;
-		
+		mThreadedHexRunner = new ThreadedHexRunner(mHexGraphMethods, mJunctionTree, mNameSpace);
 		mClassifiers = new SparseLogRegClassifier[nameSpace.size()];
 	}
 	
