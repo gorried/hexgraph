@@ -19,11 +19,11 @@ public class NameSpace<V> {
 		return mClassNames;
 	}
 	
-	public V get(int idx) {
+	public synchronized V get(int idx) {
 		return mClassNames[idx];
 	}
 	
-	public int getIndex(V query) {
+	public synchronized int getIndex(V query) {
 		return mNameMapping.get(query);
 	}
 	

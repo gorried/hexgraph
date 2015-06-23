@@ -33,6 +33,23 @@ public class JunctionTree<V> {
 		mNumClasses = numClasses;
 	}
 	
+	public JunctionTree<V> getDeepCopy() {
+		JunctionTree<V> other = new JunctionTree<>(mNameSpace, mNumClasses);
+		Map<JunctionTreeNode<V>, JunctionTreeNode<V>> nodeMap =
+				new HashMap<JunctionTreeNode<V>, JunctionTreeNode<V>>();
+		// copy the nodes over
+		for (JunctionTreeNode<V> node : this.nodes) {
+			JunctionTreeNode<V> newNode = other.addNode(node.getMembers());
+			nodeMap.put(node, newNode);
+		}
+		// copy the edges over
+		for (JunctionTreeEdge<V> edge : this.edges) {
+			other.addEdge(nodeMap.get(edge.first), nodeMap.get(edge.second));
+		}
+		
+		return other;
+	}
+	
 	private boolean nodeConsumes(JunctionTreeNode<V> node, Set<V> members) {
 		BitSet nodeMembers = node.getMembers();
 		for (V member : members) {
@@ -49,6 +66,15 @@ public class JunctionTree<V> {
 		}
 		nodes.add(new JunctionTreeNode<V>(members, mNumClasses, mNameSpace));
 		// System.out.println("added node " + members.size() + " " + members.toString());
+	}
+	
+	private JunctionTreeNode<V> addNode(BitSet members) {
+		Set<V> mems = new HashSet<V>();
+		for (int i = 0; i < members.size(); i++)
+			if (members.get(i)) mems.add(mNameSpace.get(i));
+		JunctionTreeNode<V> newNode = new JunctionTreeNode<V>(mems, mNumClasses, mNameSpace);
+		nodes.add(newNode);
+		return newNode;
 	}
 	
 	private void addEdge(JunctionTreeNode<V> first, JunctionTreeNode<V> second) {

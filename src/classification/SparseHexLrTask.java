@@ -444,10 +444,9 @@ public class SparseHexLrTask {
 	 * @return a double array of updated predictions using the HEXGraph
 	 */
 	private double[] getHexData(double[] scores) {
-		mHexGraphMethods.setScores(scores);
-		
 		double[] hexScores = new double[scores.length];
-		Map<String, Double> results = mHexGraphMethods.exactMarginalInference(mJunctionTree, mJunctionTreeStateSpace);
+		Map<String, Double> results = mHexGraphMethods.exactMarginalInference(
+				mJunctionTree, mJunctionTreeStateSpace, scores);
 		
 		double max = -1;
 		for (int i = 0; i < scores.length; i++) {
