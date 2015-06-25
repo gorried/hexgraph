@@ -10,7 +10,7 @@ import java.util.Set;
 
 import util.NameSpace;
 
-public class HexDelegate implements Runnable{
+public class HexDelegate extends Thread{
 	private HEXGraphMethods mHexGraphMethods;
 	private double[] mScores;
 	private JunctionTree<String> mJunctionTree;
@@ -21,7 +21,7 @@ public class HexDelegate implements Runnable{
 	
 	public HexDelegate(
 			HEXGraphMethods hexGraphMethods,
-			double[] scores, // scores will be returned here
+			double[] scores,
 			JunctionTree<String> junctionTree,
 			Map<JunctionTreeNode<String>, Set<Configuration>> junctionTreeStateSpace,
 			NameSpace<String> nameSpace,
@@ -37,6 +37,7 @@ public class HexDelegate implements Runnable{
 		mCol = col;
 	}
 	
+	@Override
 	public void run() {
 		Map<String, Double> results = mHexGraphMethods.exactMarginalInference(mJunctionTree, mJunctionTreeStateSpace, mScores);
 		

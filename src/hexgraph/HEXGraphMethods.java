@@ -172,9 +172,17 @@ public class HEXGraphMethods {
 	 * @param tree - the junction tree built from our {@link HEXGraph}
 	 * @return a Map of String to double containing the class name and its marginal likelihood
 	 */
-	public synchronized Map<String, Double> exactMarginalInference(
+	public Map<String, Double> exactMarginalInference(
 			JunctionTree<String> tree,
 			double[] scores) {
+		setScores(scores);
+		Map<JunctionTreeNode<String>, Set<Configuration>> stateSpaces = getJunctionTreeStateSpaces(tree);
+		return tree.exactMarginalInference(mDenseGraph.size(), stateSpaces, mDenseGraph.getScores());
+	}
+	
+	public Map<String, Double> exactMarginalInference(
+			JunctionTree<String> tree,
+			Map<String, Double> scores) {
 		setScores(scores);
 		Map<JunctionTreeNode<String>, Set<Configuration>> stateSpaces = getJunctionTreeStateSpaces(tree);
 		return tree.exactMarginalInference(mDenseGraph.size(), stateSpaces, mDenseGraph.getScores());
@@ -192,6 +200,14 @@ public class HEXGraphMethods {
 			JunctionTree<String> tree, 
 			Map<JunctionTreeNode<String>, Set<Configuration>> stateSpaces,
 			double[] scores) {
+		setScores(scores);
+		return tree.exactMarginalInference(mDenseGraph.size(), stateSpaces, mDenseGraph.getScores());
+	}
+	
+	public synchronized Map<String, Double> exactMarginalInference(
+			JunctionTree<String> tree, 
+			Map<JunctionTreeNode<String>, Set<Configuration>> stateSpaces,
+			Map<String,Double> scores) {
 		setScores(scores);
 		return tree.exactMarginalInference(mDenseGraph.size(), stateSpaces, mDenseGraph.getScores());
 	}

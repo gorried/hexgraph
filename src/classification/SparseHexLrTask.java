@@ -47,6 +47,7 @@ public class SparseHexLrTask {
 	public static final int CLASSIFICATION_FALSE = 0;
 	
 	private static final boolean USING_HEX = true;
+	private static final boolean USING_THREADED = true;
 	
 	private final int NUM_ITERATIONS = 1;
 	private final int MAX_THREADS = 15;
@@ -74,7 +75,7 @@ public class SparseHexLrTask {
 		mJunctionTreeStateSpace = mHexGraphMethods.getJunctionTreeStateSpaces(mJunctionTree);
 		
 		mNumFeatures = numFeatures;
-		mThreadedHexRunner = new ThreadedHexRunner(mHexGraphMethods, mJunctionTree, mNameSpace);
+		mThreadedHexRunner = new ThreadedHexRunner(mHexGraphMethods, mJunctionTree, mNameSpace, mNameSpace.size());
 		mClassifiers = new SparseLogRegClassifier[nameSpace.size()];
 	}
 	
@@ -153,7 +154,7 @@ public class SparseHexLrTask {
 			throw new IllegalStateException(
 					"y_train has wrong number of rows: " + y_train.getRows());
 		}
-			
+		System.out.println("Starting microbatching " + (USING_THREADED ? "" : "not ") + "using threads");
 		// run the micro-batching
 		for (int x = 0; x < NUM_ITERATIONS; x++) {
 			// chop the training and testing set into batches and run them in succession
@@ -179,20 +180,32 @@ public class SparseHexLrTask {
 			scores[c] = mClassifiers[c].train(x_batch);
 		}
 		// get the hex scores
+		double[][] updatedScores = scores;
 		if (USING_HEX) {
-			for (int i = 0; i < x_batch.getRows(); i++) {
-				double[] instanceScore = new double[mClassifiers.length];
-				for (int c = 0; c < mClassifiers.length; c++) {
-					instanceScore[c] = scores[c][i];
-				}
-				// threading for this part
-				instanceScore = getHexData(instanceScore);
-				for (int c = 0; c < mClassifiers.length; c++) {
-					scores[c][i] = instanceScore[c];
+			if (USING_THREADED) {	
+				// RETURN SOMETHING FROM THIS METHOD
+				updatedScores = mThreadedHexRunner.process(scores);
+			} else {
+				for (int i = 0; i < x_batch.getRows(); i++) {
+					double[] instanceScore = new double[mClassifiers.length];
+					for (int c = 0; c < mClassifiers.length; c++) {
+						instanceScore[c] = scores[c][i];
+					}
+					instanceScore = getHexData(instanceScore);
+					for (int c = 0; c < mClassifiers.length; c++) {
+						updatedScores[c][i] = instanceScore[c];
+					}
 				}
 			}
 		}
 		// Run the update step
+		for (int c = 0; c < mClassifiers.length; c++) {
+			mClassifiers[c].update(x_batch, updatedScores[c], y_train.subVector(c, lowData, hiData));
+			// System.out.println("" + c + " " + mClassifiers[c].getLogLoss(mClassifiers[c].train(x_batch), y_train.subVector(c, lowData, hiData)));
+		}
+	}
+	
+	public void receiveThreadedUpdateData(double[][] scores, SparseMatrix x_batch, SparseMatrix y_train, int lowData, int hiData) {
 		for (int c = 0; c < mClassifiers.length; c++) {
 			mClassifiers[c].update(x_batch, scores[c], y_train.subVector(c, lowData, hiData));
 		}

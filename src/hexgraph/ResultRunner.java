@@ -59,11 +59,10 @@ public class ResultRunner {
 				if (scoreDirectoryListing != null) {
 					for (File scoreFile : scoreDirectoryListing) {
 						Map<String, Double> scores = factory.getScores(scoreFile.getPath());
-						methods.setScores(scores);
 						System.out.println(String.format("Now exacting inference on %s", scoreFile.getName()));
 						tree.printTreeStats();
 						if (MARGINAL) {
-							runMarginalInference(methods, scoreFile, outputSubDir, tree);
+							runMarginalInference(methods, scoreFile, outputSubDir, tree, scores);
 						} else {
 							runJointInference(methods, scoreFile, outputSubDir, tree);
 						}
@@ -100,8 +99,8 @@ public class ResultRunner {
 	}
 	
 	private static void runMarginalInference(HEXGraphMethods methods, File scoreFile, 
-			File outputSubDir, JunctionTree<String> tree) throws IOException, IllegalStateException {
-		Map<String, Double> resultMap = methods.exactMarginalInference(tree);
+			File outputSubDir, JunctionTree<String> tree, Map<String, Double> scores) throws IOException, IllegalStateException {
+		Map<String, Double> resultMap = methods.exactMarginalInference(tree, scores);
 		
 		File outputFile = new File(outputSubDir.getPath() + "/new_marginal_" + scoreFile.getName());
 		PrintWriter writer = new PrintWriter(outputFile.getPath(), "UTF-8");
