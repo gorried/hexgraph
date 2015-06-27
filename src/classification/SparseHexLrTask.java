@@ -27,11 +27,6 @@ import util.SparseVector;
  * 
  * 
  * TODO: Cross validation on small set -> parameters for big set
- * 		Find optimal batch size
- * 		log loss after every ~100 iterations for both with and w/o hexgraph to verify we're going
- * 			in the right direction
- * 		Run on test set after training
- * 
  * 		For testing with hexgraph: put in the inference on the testing side
  */
 public class SparseHexLrTask {
@@ -50,7 +45,6 @@ public class SparseHexLrTask {
 	private static final boolean USING_THREADED = true;
 	
 	private final int NUM_ITERATIONS = 1;
-	private final int MAX_THREADS = 15;
 	
 	/**
 	 * Constructs a new {@link HexLrTask} from the given parameters.
@@ -128,9 +122,6 @@ public class SparseHexLrTask {
 	 * TODO: Calculate log loss for each classifier at the end of the iteration, and if it is less
 	 * 	than a value epsilon, return
 	 * 
-	 * TODO: run microbatching: 
-	 * 
-	 * 
 	 * @param x_train - {@link SparseMatrix} containing the training data
 	 * @param y_train - {@link SparseMatrix} where each row is the training labels for the given
 	 * 	class. Will have row length numClassifiers
@@ -183,7 +174,6 @@ public class SparseHexLrTask {
 		double[][] updatedScores = scores;
 		if (USING_HEX) {
 			if (USING_THREADED) {	
-				// RETURN SOMETHING FROM THIS METHOD
 				updatedScores = mThreadedHexRunner.process(scores);
 			} else {
 				for (int i = 0; i < x_batch.getRows(); i++) {
@@ -201,7 +191,6 @@ public class SparseHexLrTask {
 		// Run the update step
 		for (int c = 0; c < mClassifiers.length; c++) {
 			mClassifiers[c].update(x_batch, updatedScores[c], y_train.subVector(c, lowData, hiData));
-			// System.out.println("" + c + " " + mClassifiers[c].getLogLoss(mClassifiers[c].train(x_batch), y_train.subVector(c, lowData, hiData)));
 		}
 	}
 	

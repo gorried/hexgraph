@@ -16,8 +16,6 @@ import util.NameSpace;
 
 
 public class ThreadedHexRunner {
-	private SparseHexLrTask mParent;
-	
 	private ExecutorService mExecutorService;
 	private NameSpace<String> mNameSpace;
 	
@@ -28,11 +26,8 @@ public class ThreadedHexRunner {
 	private double[][] mScores;
 	
 	private int mNextRun = 0;
-	private int mCompletedThreadsCurrentRun;
-	private int mTotalThreadsCurrentRun;
 	
-	private final int NUM_THREADS = 4;
-	private final int NUM_CLASSIFIERS;
+	private final int NUM_THREADS = 10;
 	
 	@SuppressWarnings("unchecked")
 	public ThreadedHexRunner(
@@ -40,14 +35,9 @@ public class ThreadedHexRunner {
 			JunctionTree<String> junctionTree,
 			NameSpace<String> nameSpace,
 			int numClassifiers) {
-		NUM_CLASSIFIERS = numClassifiers;
 		
 		mExecutorService = Executors.newFixedThreadPool(NUM_THREADS);
 		mNameSpace = nameSpace;
-		
-		// default values
-		mCompletedThreadsCurrentRun = 0;
-		mTotalThreadsCurrentRun = 10000; // a number higher than the actual value
 		
 		mHexGraphMethods = new HEXGraphMethods[NUM_THREADS];
 		mJunctionTrees = (JunctionTree<String>[]) new JunctionTree[NUM_THREADS];
@@ -70,8 +60,6 @@ public class ThreadedHexRunner {
 	 * @return
 	 */
 	public double[][] process(double[][] scores) {
-		mCompletedThreadsCurrentRun = 0;
-		mTotalThreadsCurrentRun = scores[0].length;
 		List<Thread> threads = new ArrayList<Thread>(scores[0].length);
 		mScores = scores;
 		for (int i = 0; i < scores[0].length; i++) {			
@@ -111,15 +99,9 @@ public class ThreadedHexRunner {
 	}
 	
 	public void onThreadTerminate(int col, double[] scores) {
-		incrementCompletedThreads();
-		// System.out.println(mCompletedThreadsCurrentRun + " " + mTotalThreadsCurrentRun);
 		for (int c = 0; c < scores.length; c++) {
 			mScores[c][col] = scores[c];
 		}
-	}
-	
-	public synchronized void incrementCompletedThreads() {
-		mCompletedThreadsCurrentRun++;
 	}
 	
 	public void shutdown() {
