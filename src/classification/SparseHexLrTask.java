@@ -38,6 +38,9 @@ public class SparseHexLrTask {
 	private NameSpace<String> mNameSpace;
 	private Map<JunctionTreeNode<String>, Set<Configuration>> mJunctionTreeStateSpace;
 	
+	private double eta = 0.1;
+	private double lambda = 0.3;
+	
 	public static final int CLASSIFICATION_TRUE = 1;
 	public static final int CLASSIFICATION_FALSE = 0;
 	
@@ -71,6 +74,7 @@ public class SparseHexLrTask {
 		mNumFeatures = numFeatures;
 		mThreadedHexRunner = new ThreadedHexRunner(mHexGraphMethods, mJunctionTree, mNameSpace, mNameSpace.size());
 		mClassifiers = new SparseLogRegClassifier[nameSpace.size()];
+		
 	}
 	
 	/**
@@ -130,7 +134,7 @@ public class SparseHexLrTask {
 	public void train(SparseMatrix x_train, SparseMatrix y_train, int batchSize, double eta, double lambda) {
 		// for each classifier, initialize the classifier to the correct number of weights
 		for (int i = 0; i < mClassifiers.length; i++) {
-			mClassifiers[i] = new SparseLogRegClassifier(mNumFeatures, eta, lambda);
+			mClassifiers[i] = new SparseLogRegClassifier(mNumFeatures, this.eta, this.lambda);
 		}
 		// assert there are the same number of training examples and classes
 		if (x_train.getCols() != mNumFeatures) {
@@ -151,14 +155,15 @@ public class SparseHexLrTask {
 			// chop the training and testing set into batches and run them in succession
 			long startTime = System.currentTimeMillis();
 			int numInstances = x_train.getRows();
-			double[] losses = new double[mClassifiers.length];
 			for (int i = 0; i < numInstances; i += batchSize) {
-				System.out.println(String.format("Iteration %d batch %d", x, i));
+				long batchStartTime = System.currentTimeMillis();
 				if (numInstances - i > batchSize) {
 					microbatch(x_train.getSubMatrix(i, i + batchSize), y_train, i, i + batchSize);
 				} else {
 					microbatch(x_train.getSubMatrix(i, numInstances), y_train, i, numInstances);
 				}
+				long batchEndTime = System.currentTimeMillis();
+				System.out.println(String.format("Iteration %d batch %d: %d", x, i, batchEndTime - batchStartTime));
 			}
 			long endTime = System.currentTimeMillis();
 			System.out.println(String.format("Single iteration of microbatch took %d ms", endTime - startTime));
@@ -207,7 +212,7 @@ public class SparseHexLrTask {
 	 * @param y_train
 	 * @param numIterations
 	 */
-	private double[] kFoldCrossValidation(SparseMatrix x_train, SparseMatrix y_train, int numIterations) {
+	public void kFoldCrossValidation(SparseMatrix x_train, SparseMatrix y_train, int numIterations) {
 		double bestLambda = -1.0;
 		double bestEta = -1.0;
 		double bestAccuracy = 0.0;
@@ -226,9 +231,11 @@ public class SparseHexLrTask {
 				}
 			}
 		}
+		System.out.println("Best lambda is " + bestLambda);
+		System.out.println("Best eta is " + bestEta);
 		
-		// return our learned values for eta and lambda
-		return new double[] {bestLambda, bestEta};
+		this.eta = bestEta;
+		this.lambda = bestLambda;
 	}
 	
 	private double crossValidationInstance(
