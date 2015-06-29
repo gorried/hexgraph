@@ -217,7 +217,7 @@ public class SparseHexLrTask {
 		double bestEta = -1.0;
 		double bestAccuracy = 0.0;
 		
-		int k = 10;
+		int k = 20;
 		double[] etas = {0.001, 0.01, 0.1, 1};
 		double[] lambdas = {0.1, 0.2, 0.3, 0.4, 0.5};
 		// split the test and training data into k parts
@@ -254,13 +254,16 @@ public class SparseHexLrTask {
 		// iterate over the parts, selecting one as the test set
 		for (int i = 0; i < k; i++) {
 			// i is the bucket of the held out set
-			int testRegionStart = i / k * x_train.getRows();
-			int testRegionEnd = (i + 1) / k * x_train.getRows();
+			System.out.println(x_train.getRows());
+			int testRegionStart = (int) (1.0 * i / k * x_train.getRows());
+			int testRegionEnd = (int) (1.0 * (i + 1) / k * x_train.getRows());
+			System.out.println("Test region: " + testRegionStart + " - " + testRegionEnd);
 			for (int j = 0; j < k; j++) {	
 				if (j != i) {
 					// train on j
-					int trainRegionStart = j / k * x_train.getRows();
-					int trainRegionEnd = (j + 1) / k * x_train.getRows();
+					int trainRegionStart = (int) (1.0 * j / k * x_train.getRows());
+					int trainRegionEnd = (int) (1.0 * (j + 1) / k * x_train.getRows());
+					System.out.println("Train region: " + trainRegionStart + " - " + trainRegionEnd);
 					microbatch(x_train.getSubMatrix(trainRegionStart, trainRegionEnd), y_train, trainRegionStart, trainRegionEnd);
 				}
 			}
