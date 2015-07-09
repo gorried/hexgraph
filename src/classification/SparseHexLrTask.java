@@ -47,7 +47,7 @@ public class SparseHexLrTask {
 	private static final boolean USING_HEX = false;
 	private static final boolean USING_THREADED = true;
 	
-	private final int NUM_ITERATIONS = 2;
+	private final int NUM_ITERATIONS = 50;
 	
 	/**
 	 * Constructs a new {@link HexLrTask} from the given parameters.
