@@ -245,7 +245,8 @@ public class SparseHexLrTask {
 			double eta,
 			double lambda,
 			int numIterations) {
-		// initalize mClassifers to the proper settings
+		int batchSize = 10;
+		// initialize mClassifers to the proper settings
 		for (int i = 0; i < mClassifiers.length; i++) {
 			mClassifiers[i] = new SparseLogRegClassifier(mNumFeatures, eta, lambda);
 		}
@@ -253,18 +254,29 @@ public class SparseHexLrTask {
 		
 		// iterate over the parts, selecting one as the test set
 		for (int i = 0; i < k; i++) {
+			long iterationStartTime = System.currentTimeMillis();
 			// i is the bucket of the held out set
 			System.out.println(x_train.getRows());
 			int testRegionStart = (int) (1.0 * i / k * x_train.getRows());
 			int testRegionEnd = (int) (1.0 * (i + 1) / k * x_train.getRows());
 			System.out.println("Test region: " + testRegionStart + " - " + testRegionEnd);
-			for (int j = 0; j < k; j++) {	
+			for (int j = 0; j < k; j++) {
 				if (j != i) {
 					// train on j
 					int trainRegionStart = (int) (1.0 * j / k * x_train.getRows());
 					int trainRegionEnd = (int) (1.0 * (j + 1) / k * x_train.getRows());
 					System.out.println("Train region: " + trainRegionStart + " - " + trainRegionEnd);
-					microbatch(x_train.getSubMatrix(trainRegionStart, trainRegionEnd), y_train, trainRegionStart, trainRegionEnd);
+					// segment into micro-batches of the proper size
+					for (int n = trainRegionStart; n < trainRegionEnd; n += batchSize) {
+						long batchStartTime = System.currentTimeMillis();
+						if (trainRegionEnd - n > batchSize) {
+							microbatch(x_train.getSubMatrix(n, n + batchSize), y_train, n, n + batchSize);
+						} else {
+							microbatch(x_train.getSubMatrix(n, trainRegionEnd), y_train, n, trainRegionEnd);
+						}
+						long batchEndTime = System.currentTimeMillis();
+						System.out.println(String.format("Batch took %d ms", batchEndTime - batchStartTime));
+					}
 				}
 			}
 			// make a new SparseMatrix with the labels for each classifier in row order
@@ -272,6 +284,9 @@ public class SparseHexLrTask {
 			
 			// test on bucket i and record the accuracy in the array 
 			accuracies[i] = test(x_train.getSubMatrix(testRegionStart, testRegionEnd), y_test);
+			
+			long iterationEndTime = System.currentTimeMillis();
+			System.out.println(String.format("Iteration took %d ms", iterationEndTime - iterationStartTime));
 		}
 		
 		return getSum(accuracies) / accuracies.length;
