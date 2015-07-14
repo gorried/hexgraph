@@ -268,14 +268,14 @@ public class SparseHexLrTask {
 					System.out.println("Train region: " + trainRegionStart + " - " + trainRegionEnd);
 					// segment into micro-batches of the proper size
 					for (int n = trainRegionStart; n < trainRegionEnd; n += batchSize) {
-						long batchStartTime = System.currentTimeMillis();
+//						long batchStartTime = System.currentTimeMillis();
 						if (trainRegionEnd - n > batchSize) {
 							microbatch(x_train.getSubMatrix(n, n + batchSize), y_train, n, n + batchSize);
 						} else {
 							microbatch(x_train.getSubMatrix(n, trainRegionEnd), y_train, n, trainRegionEnd);
 						}
-						long batchEndTime = System.currentTimeMillis();
-						System.out.println(String.format("Batch took %d ms", batchEndTime - batchStartTime));
+//						long batchEndTime = System.currentTimeMillis();
+//						System.out.println(String.format("Batch took %d ms", batchEndTime - batchStartTime));
 					}
 				}
 			}
