@@ -167,6 +167,10 @@ public class SparseHexLrTask {
 			}
 			long endTime = System.currentTimeMillis();
 			System.out.println(String.format("Single iteration of microbatch took %d ms", endTime - startTime));
+			for (int i = 0; i < mClassifiers.length; i++) {
+				SparseLogRegClassifier c = mClassifiers[i];
+				System.out.println(String.format("Log loss for %s: %f", mNameSpace.get(i), c.getLogLoss(c.train(x_train), y_train.getRow(i))));
+			}
 		}
 	}
 	
