@@ -38,8 +38,8 @@ public class SparseHexLrTask {
 	private NameSpace<String> mNameSpace;
 	private Map<JunctionTreeNode<String>, Set<Configuration>> mJunctionTreeStateSpace;
 	
-	private double eta = 0.1;
-	private double lambda = 0.3;
+	private double eta = 0.01;
+	private double lambda = 0.1;
 	
 	public static final int CLASSIFICATION_TRUE = 1;
 	public static final int CLASSIFICATION_FALSE = 0;
@@ -156,20 +156,20 @@ public class SparseHexLrTask {
 			long startTime = System.currentTimeMillis();
 			int numInstances = x_train.getRows();
 			for (int i = 0; i < numInstances; i += batchSize) {
-				long batchStartTime = System.currentTimeMillis();
+				// long batchStartTime = System.currentTimeMillis();
 				if (numInstances - i > batchSize) {
 					microbatch(x_train.getSubMatrix(i, i + batchSize), y_train, i, i + batchSize);
 				} else {
 					microbatch(x_train.getSubMatrix(i, numInstances), y_train, i, numInstances);
 				}
-				long batchEndTime = System.currentTimeMillis();
-				System.out.println(String.format("Iteration %d batch %d: %d", x, i, batchEndTime - batchStartTime));
+				// long batchEndTime = System.currentTimeMillis();
+				// System.out.println(String.format("Iteration %d batch %d: %d", x, i, batchEndTime - batchStartTime));
 			}
 			long endTime = System.currentTimeMillis();
 			System.out.println(String.format("Single iteration of microbatch took %d ms", endTime - startTime));
 			for (int i = 0; i < mClassifiers.length; i++) {
 				SparseLogRegClassifier c = mClassifiers[i];
-				System.out.println(String.format("Log loss for %s: %f", mNameSpace.get(i), c.getLogLoss(c.train(x_train), y_train.getRow(i))));
+				System.out.println(String.format("Log loss for %s: %f %f", mNameSpace.get(i), c.getLogLoss(c.train(x_train), y_train.getRow(i)), c.weightL2Norm()));
 			}
 		}
 	}

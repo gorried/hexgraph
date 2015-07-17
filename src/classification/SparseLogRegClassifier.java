@@ -67,7 +67,7 @@ public class SparseLogRegClassifier {
 	/**
 	 * Holy expensive method batman
 	 */
-	private double weightL2Norm() {
+	public double weightL2Norm() {
 		double sum = 0.0;
         for (int i = 0; i < w.length; i++)
             sum += (w[i] * w[i]);
