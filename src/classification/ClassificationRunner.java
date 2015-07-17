@@ -69,8 +69,8 @@ public class ClassificationRunner {
 		SparseHexLrTask task = new SparseHexLrTask(graphFile, NUM_FEATURES, mNameSpace);
 		
 		int testingCutoff = (int)Math.floor(x.getRows() * (1 - TEST_SET_SIZE));
-		System.out.println("Running cross validation");
-		task.kFoldCrossValidation(x.getSubMatrix(0, testingCutoff),y.getSubColMatrix(0, testingCutoff), 10);
+//		System.out.println("Running cross validation");
+//		task.kFoldCrossValidation(x.getSubMatrix(0, testingCutoff),y.getSubColMatrix(0, testingCutoff), 10);
 		System.out.println("Starting training");
 		task.train(x.getSubMatrix(0, testingCutoff),y.getSubColMatrix(0, testingCutoff), BATCH_SIZE, 0.1, 0.3);
 		System.out.println("Writing model file");
