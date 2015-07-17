@@ -38,7 +38,7 @@ public class SparseHexLrTask {
 	private NameSpace<String> mNameSpace;
 	private Map<JunctionTreeNode<String>, Set<Configuration>> mJunctionTreeStateSpace;
 	
-	private double eta = 0.01;
+	private double eta = 0.001;
 	private double lambda = 0.1;
 	
 	public static final int CLASSIFICATION_TRUE = 1;
