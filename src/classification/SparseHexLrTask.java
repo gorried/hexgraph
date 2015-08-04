@@ -38,13 +38,13 @@ public class SparseHexLrTask {
 	private NameSpace<String> mNameSpace;
 	private Map<JunctionTreeNode<String>, Set<Configuration>> mJunctionTreeStateSpace;
 	
-	private double eta = 0.001;
+	private double eta = 0.0001;
 	private double lambda = 0.1;
 	
 	public static final int CLASSIFICATION_TRUE = 1;
 	public static final int CLASSIFICATION_FALSE = 0;
 	
-	private static final boolean USING_HEX = false;
+	private static final boolean USING_HEX = true;
 	private static final boolean USING_THREADED = true;
 	
 	private final int NUM_ITERATIONS = 50;
